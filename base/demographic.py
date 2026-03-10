@@ -28,7 +28,7 @@ from sklearn.metrics import root_mean_squared_error
 from statsmodels.tsa.stattools import adfuller
 from scipy.stats import boxcox
 from scipy.special import inv_boxcox
-import utils
+import base.utils as utils
 import torch
 import random
 import models.mlp as mlp 

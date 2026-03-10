@@ -23,7 +23,7 @@ import pmdarima as pm
 from statsmodels.tsa.stattools import adfuller
 import torch
 import random
-import utils
+import base.utils as utils
 import models.xgbRegressor as xgb 
 import models.mlp as mlp 
 
