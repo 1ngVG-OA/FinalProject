@@ -1,4 +1,12 @@
-"""Statistical forecasting model (ARMA/SARIMA via auto_arima)."""
+"""Statistical forecasting backend (ARMA/SARIMA via pmdarima auto_arima).
+
+This module provides a single function that:
+1) fits an ARMA/SARIMA-style model on train,
+2) validates on the validation horizon,
+3) refits on train+validation,
+4) predicts the test horizon,
+5) returns forecasts and selected model metadata.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +25,37 @@ def forecast_statistical(
     seasonal_period: int,
     diff_order: int,
 ) -> dict:
+    """Train and evaluate a statistical univariate forecasting model.
+
+    Parameters
+    ----------
+    train : pd.Series
+        Training segment of the time series.
+    val : pd.Series
+        Validation segment used for the first out-of-sample forecast.
+    test : pd.Series
+        Test segment used for final out-of-sample evaluation.
+    seasonal : bool
+        If True, configures a seasonal model and enables Box-Cox transform.
+    seasonal_period : int
+        Seasonal periodicity `m` passed to auto_arima.
+    diff_order : int
+        Fixed differencing order `d` passed to auto_arima.
+
+    Returns
+    -------
+    dict
+        Dictionary with:
+        - name: model label (`SARIMA` or `ARMA`)
+        - best_params: selected model parameters/metadata
+        - validation_pred: forecast values for validation horizon
+        - test_pred: forecast values for test horizon
+
+    Notes
+    -----
+    For seasonal series, Box-Cox is fitted on train and train+val separately,
+    then predictions are back-transformed with inverse Box-Cox.
+    """
     use_boxcox = seasonal
 
     if use_boxcox:

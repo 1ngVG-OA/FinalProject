@@ -69,3 +69,9 @@ oppure (riproducibilità completa):
 pip install -r requirements-full.txt
 ```
 
+## Documentazione pipeline
+
+Per una guida molto dettagliata del flusso end-to-end (struttura, funzioni, tuning, metriche, output e troubleshooting), vedi:
+
+- `DOCUMENTAZIONE_PIPELINE.md`
+

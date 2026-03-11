@@ -1,4 +1,8 @@
-"""XGBoost model for autoregressive forecasting."""
+"""Tree-based forecasting backend built on XGBoost autoregression.
+
+The module performs hyperparameter tuning on a validation horizon and then
+refits the best configuration on train+validation before forecasting test.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,20 @@ from xgboost import XGBRegressor
 
 
 def _create_dataset(series: np.ndarray, look_back: int) -> tuple[np.ndarray, np.ndarray]:
+    """Convert a 1D time series into lag-window supervised samples.
+
+    Parameters
+    ----------
+    series : np.ndarray
+        Input univariate sequence.
+    look_back : int
+        Number of lag observations used as features.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        Feature matrix `X` and target vector `y`.
+    """
     x, y = [], []
     for i in range(len(series) - look_back):
         x.append(series[i : i + look_back])
@@ -17,6 +35,24 @@ def _create_dataset(series: np.ndarray, look_back: int) -> tuple[np.ndarray, np.
 
 
 def _rolling_forecast(model: XGBRegressor, x_train: np.ndarray, steps: int, look_back: int) -> np.ndarray:
+    """Forecast multiple steps with iterative rolling-window updates.
+
+    Parameters
+    ----------
+    model : XGBRegressor
+        Trained regressor for one-step prediction.
+    x_train : np.ndarray
+        Training feature matrix; last row initializes the forecast window.
+    steps : int
+        Number of future values to predict.
+    look_back : int
+        Window length used by the model.
+
+    Returns
+    -------
+    np.ndarray
+        Predicted values for the requested horizon.
+    """
     current = x_train[-1].copy()
     preds = []
     for _ in range(steps):
@@ -28,6 +64,25 @@ def _rolling_forecast(model: XGBRegressor, x_train: np.ndarray, steps: int, look
 
 
 def tune_and_forecast(train: pd.Series, val: pd.Series, test: pd.Series, param_grid: dict) -> dict:
+    """Tune XGBoost hyperparameters and forecast validation/test windows.
+
+    Parameters
+    ----------
+    train : pd.Series
+        Train segment used for initial fitting.
+    val : pd.Series
+        Validation segment used for model selection.
+    test : pd.Series
+        Test segment used for final evaluation after refit.
+    param_grid : dict
+        Hyperparameter search space including `look_back`.
+
+    Returns
+    -------
+    dict
+        Dictionary with model name, selected hyperparameters, validation
+        predictions, and test predictions.
+    """
     best = {"rmse": float("inf"), "params": None, "model": None, "val_pred": None}
 
     for params in ParameterGrid(param_grid):

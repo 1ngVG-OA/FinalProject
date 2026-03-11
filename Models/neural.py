@@ -1,4 +1,11 @@
-"""MLP model for autoregressive forecasting."""
+"""Neural forecasting backend based on an autoregressive MLP.
+
+The module exposes a tuning-and-forecast routine that performs:
+1) scaling,
+2) hyperparameter search on validation RMSE,
+3) final refit on train+validation,
+4) recursive forecast on test horizon.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +22,25 @@ from utils import seed_everything
 
 
 class MLP(nn.Module):
+    """Simple feed-forward regressor for next-step prediction.
+
+    The network receives a lag window of size `input_size` and outputs one value.
+    """
+
     def __init__(self, input_size: int, hidden_size: int, activation: str, dropout: float) -> None:
+        """Initialize the MLP architecture.
+
+        Parameters
+        ----------
+        input_size : int
+            Number of lagged observations used as features.
+        hidden_size : int
+            Hidden layer width.
+        activation : str
+            Activation name (`relu` or `tanh`).
+        dropout : float
+            Dropout rate applied after activation.
+        """
         super().__init__()
         act = {"relu": nn.ReLU(), "tanh": nn.Tanh()}.get(activation, nn.ReLU())
         self.net = nn.Sequential(
@@ -26,10 +51,25 @@ class MLP(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Compute one-step prediction from lag-window features."""
         return self.net(x)
 
 
 def _create_dataset(series: np.ndarray, look_back: int) -> tuple[np.ndarray, np.ndarray]:
+    """Build supervised lag-window dataset from a 1D series.
+
+    Parameters
+    ----------
+    series : np.ndarray
+        Input sequence (already scaled when required).
+    look_back : int
+        Number of past points used to predict the next point.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        Feature matrix `X` and target vector `y`.
+    """
     x, y = [], []
     for i in range(len(series) - look_back):
         x.append(series[i : i + look_back])
@@ -46,6 +86,25 @@ def _fit_model(
     batch_size: int,
     patience: int = 10,
 ) -> None:
+    """Fit a PyTorch model with mini-batches and early stopping.
+
+    Parameters
+    ----------
+    model : nn.Module
+        Network to optimize.
+    x_train : torch.Tensor
+        Training features tensor.
+    y_train : torch.Tensor
+        Training targets tensor.
+    epochs : int
+        Maximum training epochs.
+    lr : float
+        Adam learning rate.
+    batch_size : int
+        Mini-batch size.
+    patience : int, default=10
+        Number of consecutive non-improving epochs before stop.
+    """
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
     loader = DataLoader(TensorDataset(x_train, y_train), batch_size=batch_size, shuffle=True)
@@ -73,6 +132,27 @@ def _fit_model(
 
 
 def _recursive_forecast(model: nn.Module, window: torch.Tensor, steps: int) -> np.ndarray:
+    """Generate multi-step forecast recursively.
+
+    Parameters
+    ----------
+    model : nn.Module
+        Trained one-step predictor.
+    window : torch.Tensor
+        Initial lag window used as first model input.
+    steps : int
+        Number of points to forecast.
+
+    Returns
+    -------
+    np.ndarray
+        Forecast vector of length `steps`.
+
+    Notes
+    -----
+    At each step, the predicted value is appended to the window and the oldest
+    value is discarded.
+    """
     model.eval()
     preds = []
     current = window.clone()
@@ -92,6 +172,33 @@ def tune_and_forecast(
     epochs: int,
     seed: int,
 ) -> dict:
+    """Tune MLP hyperparameters and produce validation/test forecasts.
+
+    Parameters
+    ----------
+    train : pd.Series
+        Train segment.
+    val : pd.Series
+        Validation segment used to rank hyperparameter combinations.
+    test : pd.Series
+        Test segment used for final out-of-sample forecast.
+    param_grid : dict
+        Hyperparameter grid consumed by sklearn `ParameterGrid`.
+    epochs : int
+        Max epochs for each training run.
+    seed : int
+        Reproducibility seed.
+
+    Returns
+    -------
+    dict
+        Dictionary containing model name, selected hyperparameters, validation
+        prediction, and test prediction.
+
+    Selection criterion
+    -------------------
+    Best configuration is the one with minimum validation RMSE.
+    """
     seed_everything(seed)
 
     scaler = StandardScaler()
