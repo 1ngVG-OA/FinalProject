@@ -28,7 +28,7 @@ from config import (
     SERIES_CONFIG,
     XGB_PARAM_GRID,
 )
-from Mains.main import _load_series, _split_series
+from Mains.utils import _load_series, _split_series
 from Models.neural import tune_and_forecast as run_mlp
 from Models.statistical import forecast_statistical
 from Models.tree_based import tune_and_forecast as run_xgb

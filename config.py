@@ -23,7 +23,7 @@ PLOTS_DIR = RESULTS_DIR / "plots"
 # Global reproducibility seed used across numpy/torch/model training.
 SEED = 1234
 
-# Per-series configuration block used by `Mains/main.py`.
+# Per-series configuration block used by `Mains/utils.py`.
 #
 # Field semantics:
 # - csv_path: source dataset path
@@ -35,6 +35,17 @@ SEED = 1234
 # - seasonal_period: seasonality period (for example 12 for monthly)
 # - diff_order: differencing order used by auto_arima
 SERIES_CONFIG = {
+    # Series defined by ISTAT 
+    "Energy production and consumed": {
+        "csv_path": DATA_DIR / "Tavola_1.14.csv",
+        "date_col": "date",
+        "value_col": "values",
+        "freq": "ME",
+        "split": (111, 123),
+        "seasonal": True,
+        "seasonal_period": 12,
+        "diff_order": 2,
+    },
     "demographic": {
         "csv_path": DATA_DIR / "demographic.csv",
         "date_col": "date",
