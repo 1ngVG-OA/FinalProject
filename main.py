@@ -147,7 +147,7 @@ def main() -> None:
 		transform=TransformConfig(
 			use_log1p=True,
 			power_exponent=None,
-			diff_order=2,
+			diff_order=1,
 			scale_method="none",
 		),
 		run_shapiro=True,
@@ -172,7 +172,7 @@ def main() -> None:
 	# Step 3 - statistical model (SARIMA) and statistical benchmark (Holt-Winters).
 	seasonal_period = infer_seasonal_period_from_index(preproc_output["splits"]["train"].index)
 	stat_cfg = StatisticalStepConfig(
-		d_values=(2,),
+		d_values=(0, 1),
 		seasonal_period=seasonal_period,
 	)
 	stat_runner = StatisticalModelRunner(

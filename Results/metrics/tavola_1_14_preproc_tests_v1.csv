@@ -1,8 +1,10 @@
 split,n,adf_stat,adf_pvalue,adf_stationary_at_05,kpss_stat,kpss_pvalue,kpss_stationary_at_05,shapiro_stat,shapiro_pvalue,shapiro_normal_at_05,kpss_note
-train,90,-10.19852814154712,6.055980523315706e-18,True,0.1503377285384964,0.1,True,0.9506007040797245,0.0018231480386822986,False,"The test statistic is outside of the range of p-values available in the
+train,91,-1.5099241115560968,0.5285964351539963,False,1.257904636196032,0.01,False,0.9454432434696124,0.0008208858454901958,False,"The test statistic is outside of the range of p-values available in the
+look-up table. The actual p-value is smaller than the p-value returned.
+"
+val,19,-1.9780267714765662,0.2962899124980688,False,0.15683583872212056,0.1,True,0.9135229665114495,0.08593372726710462,True,"The test statistic is outside of the range of p-values available in the
 look-up table. The actual p-value is greater than the p-value returned.
 "
-val,19,-8.754090520059025,2.7856040684917554e-14,True,0.2737104090799099,0.1,True,0.9334466533120986,0.20039469395226617,True,"The test statistic is outside of the range of p-values available in the
-look-up table. The actual p-value is greater than the p-value returned.
+test,20,1.6816418977577927,0.9980829621863612,False,0.8003383095787944,0.01,False,0.822782184662551,0.0019281887300875758,False,"The test statistic is outside of the range of p-values available in the
+look-up table. The actual p-value is smaller than the p-value returned.
 "
-test,20,-1.1073503377247187,0.7121317915630855,False,0.3599392535257804,0.0944227355492326,True,0.9027219707649066,0.046393918527589985,False,

@@ -34,8 +34,14 @@ def _safe_mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(np.nanmean(ape) * 100.0)
 
 
+def _mean_bias_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Mean signed error (positive => model over-forecasting)."""
+
+    return float(np.nanmean(y_pred - y_true))
+
+
 def compute_metrics(y_true: pd.Series, y_pred: pd.Series | np.ndarray) -> dict[str, float]:
-    """Return RMSE/MAE/MAPE on aligned series."""
+    """Return RMSE/MAE/MAPE and bias metrics on aligned series."""
 
     pred = pd.Series(np.asarray(y_pred, dtype=float), index=y_true.index)
     yt = y_true.astype(float).to_numpy()
@@ -45,7 +51,26 @@ def compute_metrics(y_true: pd.Series, y_pred: pd.Series | np.ndarray) -> dict[s
         "rmse": float(np.sqrt(mean_squared_error(yt, yp))),
         "mae": float(mean_absolute_error(yt, yp)),
         "mape": _safe_mape(yt, yp),
+        "mbe": _mean_bias_error(yt, yp),
+        "abs_mbe": float(abs(_mean_bias_error(yt, yp))),
     }
+
+
+def _compute_metrics_aligned(y_true: pd.Series, y_pred: pd.Series) -> dict[str, float]:
+    """Compute metrics after index alignment and NaN filtering."""
+
+    y_true_num = pd.to_numeric(y_true, errors="coerce")
+    y_pred_num = pd.to_numeric(y_pred, errors="coerce")
+    aligned = pd.concat([y_true_num.rename("y_true"), y_pred_num.rename("y_pred")], axis=1).dropna()
+    if aligned.empty:
+        return {
+            "rmse": float("nan"),
+            "mae": float("nan"),
+            "mape": float("nan"),
+            "mbe": float("nan"),
+            "abs_mbe": float("nan"),
+        }
+    return compute_metrics(aligned["y_true"], aligned["y_pred"])
 
 
 def _aicc(aic: float, n: int, k: int) -> float:
@@ -96,6 +121,7 @@ class StatisticalModelRunner:
         self.original_series = self._validate_original_series(original_series)
         self.use_log1p = bool(use_log1p)
         self.diff_order = int(diff_order)
+        self._orig_context = self._build_original_scale_context()
 
     @staticmethod
     def _validate_split(series: pd.Series, name: str) -> pd.Series:
@@ -123,6 +149,72 @@ class StatisticalModelRunner:
             s = s.sort_index()
 
         return s
+
+    def _build_original_scale_context(self) -> dict[str, Any] | None:
+        """Build context for inverse transform when using log1p + differencing."""
+
+        if self.original_series is None or not self.use_log1p or self.diff_order not in (1, 2):
+            return None
+
+        raw = pd.to_numeric(self.original_series, errors="coerce").dropna().astype(float)
+        if raw.empty:
+            return None
+
+        x_log = np.log1p(raw)
+        val_start = self.validation.index.min()
+
+        if self.diff_order == 1:
+            try:
+                seed_log_val = float(x_log[x_log.index < val_start].iloc[-1])
+            except Exception:
+                return None
+
+            return {
+                "raw": raw,
+                "seed_log_val": seed_log_val,
+            }
+
+        x_d1 = x_log.diff().dropna()
+        try:
+            seed_d1_val = float(x_d1[x_d1.index < val_start].iloc[-1])
+            seed_log_val = float(x_log[x_log.index < val_start].iloc[-1])
+        except Exception:
+            return None
+
+        return {
+            "raw": raw,
+            "seed_d1_val": seed_d1_val,
+            "seed_log_val": seed_log_val,
+        }
+
+    @staticmethod
+    def _invert_diff2_log1p(pred_d2: pd.Series, seed_d1: float, seed_log: float) -> pd.Series:
+        """Invert predictions from transformed space back to original scale."""
+
+        d1_pred = seed_d1 + pred_d2.cumsum()
+        log_pred = seed_log + d1_pred.cumsum()
+        return np.expm1(log_pred)
+
+    def _validation_original_metrics(self, pred_val: pd.Series) -> dict[str, float] | None:
+        """Compute validation metrics in original scale when inversion is available."""
+
+        if self._orig_context is None:
+            return None
+
+        if self.diff_order == 1:
+            log_pred = self._orig_context["seed_log_val"] + pred_val.cumsum()
+            pred_orig = np.expm1(log_pred)
+        elif self.diff_order == 2:
+            pred_orig = self._invert_diff2_log1p(
+                pred_val,
+                self._orig_context["seed_d1_val"],
+                self._orig_context["seed_log_val"],
+            )
+        else:
+            return None
+
+        true_orig = self._orig_context["raw"].reindex(pred_orig.index)
+        return _compute_metrics_aligned(true_orig, pred_orig)
 
     def _sarima_candidates(self) -> list[dict[str, Any]]:
         seasonal_period = max(1, int(self.config.seasonal_period))
@@ -167,9 +259,10 @@ class StatisticalModelRunner:
                     enforce_invertibility=self.config.enforce_invertibility,
                 )
                 fit = model.fit(disp=False, maxiter=self.config.maxiter)
-                pred_val = fit.forecast(steps=len(self.validation))
+                pred_val = pd.Series(np.asarray(fit.forecast(steps=len(self.validation))), index=self.validation.index)
 
                 metrics = compute_metrics(self.validation, pred_val)
+                metrics_orig = self._validation_original_metrics(pred_val)
                 k = int(fit.params.shape[0])
                 aic = float(fit.aic)
 
@@ -179,29 +272,71 @@ class StatisticalModelRunner:
                     "rmse_val": metrics["rmse"],
                     "mae_val": metrics["mae"],
                     "mape_val": metrics["mape"],
+                    "mbe_val": metrics["mbe"],
+                    "abs_mbe_val": metrics["abs_mbe"],
+                    "rmse_val_orig": np.nan if metrics_orig is None else metrics_orig["rmse"],
+                    "mae_val_orig": np.nan if metrics_orig is None else metrics_orig["mae"],
+                    "mape_val_orig": np.nan if metrics_orig is None else metrics_orig["mape"],
+                    "mbe_val_orig": np.nan if metrics_orig is None else metrics_orig["mbe"],
+                    "abs_mbe_val_orig": np.nan if metrics_orig is None else metrics_orig["abs_mbe"],
                     "aic": aic,
                     "aicc": _aicc(aic, n=len(self.train), k=k),
                     "k_params": k,
                 }
                 rows.append(row)
 
+                rank_rmse_now = row["rmse_val_orig"] if not pd.isna(row["rmse_val_orig"]) else row["rmse_val"]
+                rank_abs_mbe_now = row["abs_mbe_val_orig"] if not pd.isna(row["abs_mbe_val_orig"]) else row["abs_mbe_val"]
+
                 if best is None:
-                    best = {"fit": fit, "cfg": cfg, "row": row}
+                    best = {
+                        "fit": fit,
+                        "cfg": cfg,
+                        "row": row,
+                        "rank_rmse": rank_rmse_now,
+                        "rank_abs_mbe": rank_abs_mbe_now,
+                    }
                 else:
-                    rmse_now = row["rmse_val"]
-                    rmse_best = best["row"]["rmse_val"]
+                    rmse_now = rank_rmse_now
+                    rmse_best = best["rank_rmse"]
                     if rmse_now < rmse_best - 1e-12:
-                        best = {"fit": fit, "cfg": cfg, "row": row}
+                        best = {
+                            "fit": fit,
+                            "cfg": cfg,
+                            "row": row,
+                            "rank_rmse": rank_rmse_now,
+                            "rank_abs_mbe": rank_abs_mbe_now,
+                        }
                     elif abs(rmse_now - rmse_best) <= 1e-12:
-                        if row["aicc"] < best["row"]["aicc"]:
-                            best = {"fit": fit, "cfg": cfg, "row": row}
+                        mbe_now = rank_abs_mbe_now
+                        mbe_best = best["rank_abs_mbe"]
+                        if mbe_now < mbe_best - 1e-12:
+                            best = {
+                                "fit": fit,
+                                "cfg": cfg,
+                                "row": row,
+                                "rank_rmse": rank_rmse_now,
+                                "rank_abs_mbe": rank_abs_mbe_now,
+                            }
+                        elif abs(mbe_now - mbe_best) <= 1e-12:
+                            if row["aicc"] < best["row"]["aicc"]:
+                                best = {
+                                    "fit": fit,
+                                    "cfg": cfg,
+                                    "row": row,
+                                    "rank_rmse": rank_rmse_now,
+                                    "rank_abs_mbe": rank_abs_mbe_now,
+                                }
             except Exception:
                 continue
 
         if not rows or best is None:
             raise RuntimeError("SARIMA grid search failed for all candidate configurations")
 
-        results = pd.DataFrame(rows).sort_values(["rmse_val", "aicc"], ascending=[True, True]).reset_index(drop=True)
+        results = pd.DataFrame(rows)
+        results = results.assign(rank_rmse_val=results["rmse_val_orig"].fillna(results["rmse_val"]))
+        results = results.assign(rank_abs_mbe_val=results["abs_mbe_val_orig"].fillna(results["abs_mbe_val"]))
+        results = results.sort_values(["rank_rmse_val", "rank_abs_mbe_val", "aicc"], ascending=[True, True, True]).reset_index(drop=True)
         return results, best
 
     def fit_hw_grid(self) -> tuple[pd.DataFrame, dict[str, Any]]:
@@ -239,8 +374,9 @@ class StatisticalModelRunner:
                     initialization_method="estimated",
                 )
                 fit = model.fit(optimized=True)
-                pred_val = fit.forecast(len(self.validation))
+                pred_val = pd.Series(np.asarray(fit.forecast(len(self.validation))), index=self.validation.index)
                 metrics = compute_metrics(self.validation, pred_val)
+                metrics_orig = self._validation_original_metrics(pred_val)
 
                 row = {
                     "trend": str(cfg["trend"]),
@@ -249,28 +385,70 @@ class StatisticalModelRunner:
                     "rmse_val": metrics["rmse"],
                     "mae_val": metrics["mae"],
                     "mape_val": metrics["mape"],
+                    "mbe_val": metrics["mbe"],
+                    "abs_mbe_val": metrics["abs_mbe"],
+                    "rmse_val_orig": np.nan if metrics_orig is None else metrics_orig["rmse"],
+                    "mae_val_orig": np.nan if metrics_orig is None else metrics_orig["mae"],
+                    "mape_val_orig": np.nan if metrics_orig is None else metrics_orig["mape"],
+                    "mbe_val_orig": np.nan if metrics_orig is None else metrics_orig["mbe"],
+                    "abs_mbe_val_orig": np.nan if metrics_orig is None else metrics_orig["abs_mbe"],
                     "aic": float(getattr(fit, "aic", np.nan)),
                     "aicc": float(getattr(fit, "aicc", np.nan)),
                 }
                 rows.append(row)
 
+                rank_rmse_now = row["rmse_val_orig"] if not pd.isna(row["rmse_val_orig"]) else row["rmse_val"]
+                rank_abs_mbe_now = row["abs_mbe_val_orig"] if not pd.isna(row["abs_mbe_val_orig"]) else row["abs_mbe_val"]
+
                 if best is None:
-                    best = {"fit": fit, "cfg": cfg, "row": row}
+                    best = {
+                        "fit": fit,
+                        "cfg": cfg,
+                        "row": row,
+                        "rank_rmse": rank_rmse_now,
+                        "rank_abs_mbe": rank_abs_mbe_now,
+                    }
                 else:
-                    rmse_now = row["rmse_val"]
-                    rmse_best = best["row"]["rmse_val"]
+                    rmse_now = rank_rmse_now
+                    rmse_best = best["rank_rmse"]
                     if rmse_now < rmse_best - 1e-12:
-                        best = {"fit": fit, "cfg": cfg, "row": row}
+                        best = {
+                            "fit": fit,
+                            "cfg": cfg,
+                            "row": row,
+                            "rank_rmse": rank_rmse_now,
+                            "rank_abs_mbe": rank_abs_mbe_now,
+                        }
                     elif abs(rmse_now - rmse_best) <= 1e-12:
-                        if row["aicc"] < best["row"]["aicc"]:
-                            best = {"fit": fit, "cfg": cfg, "row": row}
+                        mbe_now = rank_abs_mbe_now
+                        mbe_best = best["rank_abs_mbe"]
+                        if mbe_now < mbe_best - 1e-12:
+                            best = {
+                                "fit": fit,
+                                "cfg": cfg,
+                                "row": row,
+                                "rank_rmse": rank_rmse_now,
+                                "rank_abs_mbe": rank_abs_mbe_now,
+                            }
+                        elif abs(mbe_now - mbe_best) <= 1e-12:
+                            if row["aicc"] < best["row"]["aicc"]:
+                                best = {
+                                    "fit": fit,
+                                    "cfg": cfg,
+                                    "row": row,
+                                    "rank_rmse": rank_rmse_now,
+                                    "rank_abs_mbe": rank_abs_mbe_now,
+                                }
             except Exception:
                 continue
 
         if not rows or best is None:
             raise RuntimeError("Holt-Winters grid search failed for all candidate configurations")
 
-        results = pd.DataFrame(rows).sort_values(["rmse_val", "aicc"], ascending=[True, True]).reset_index(drop=True)
+        results = pd.DataFrame(rows)
+        results = results.assign(rank_rmse_val=results["rmse_val_orig"].fillna(results["rmse_val"]))
+        results = results.assign(rank_abs_mbe_val=results["abs_mbe_val_orig"].fillna(results["abs_mbe_val"]))
+        results = results.sort_values(["rank_rmse_val", "rank_abs_mbe_val", "aicc"], ascending=[True, True, True]).reset_index(drop=True)
         return results, best
 
     def _refit_best_sarima(self, cfg: dict[str, Any]) -> Any:
@@ -317,14 +495,17 @@ class StatisticalModelRunner:
         sarima_grid_df, sarima_best = self.fit_sarima_grid()
         hw_grid_df, hw_best = self.fit_hw_grid()
 
-        sarima_val_pred = sarima_best["fit"].forecast(len(self.validation))
-        hw_val_pred = hw_best["fit"].forecast(len(self.validation))
+        sarima_val_pred = pd.Series(np.asarray(sarima_best["fit"].forecast(len(self.validation))), index=self.validation.index)
+        hw_val_pred = pd.Series(np.asarray(hw_best["fit"].forecast(len(self.validation))), index=self.validation.index)
 
         sarima_final = self._refit_best_sarima(sarima_best["cfg"])
         hw_final = self._refit_best_hw(hw_best["cfg"])
 
-        sarima_test_pred = sarima_final.forecast(len(self.test))
-        hw_test_pred = hw_final.forecast(len(self.test))
+        sarima_test_pred = pd.Series(np.asarray(sarima_final.forecast(len(self.test))), index=self.test.index)
+        hw_test_pred = pd.Series(np.asarray(hw_final.forecast(len(self.test))), index=self.test.index)
+
+        sarima_val_orig_metrics = self._validation_original_metrics(sarima_val_pred)
+        hw_val_orig_metrics = self._validation_original_metrics(hw_val_pred)
 
         summary = pd.DataFrame(
             [
@@ -337,9 +518,18 @@ class StatisticalModelRunner:
                     "rmse_val": compute_metrics(self.validation, sarima_val_pred)["rmse"],
                     "mae_val": compute_metrics(self.validation, sarima_val_pred)["mae"],
                     "mape_val": compute_metrics(self.validation, sarima_val_pred)["mape"],
+                    "mbe_val": compute_metrics(self.validation, sarima_val_pred)["mbe"],
+                    "abs_mbe_val": compute_metrics(self.validation, sarima_val_pred)["abs_mbe"],
+                    "rmse_val_orig": np.nan if sarima_val_orig_metrics is None else sarima_val_orig_metrics["rmse"],
+                    "mae_val_orig": np.nan if sarima_val_orig_metrics is None else sarima_val_orig_metrics["mae"],
+                    "mape_val_orig": np.nan if sarima_val_orig_metrics is None else sarima_val_orig_metrics["mape"],
+                    "mbe_val_orig": np.nan if sarima_val_orig_metrics is None else sarima_val_orig_metrics["mbe"],
+                    "abs_mbe_val_orig": np.nan if sarima_val_orig_metrics is None else sarima_val_orig_metrics["abs_mbe"],
                     "rmse_test": compute_metrics(self.test, sarima_test_pred)["rmse"],
                     "mae_test": compute_metrics(self.test, sarima_test_pred)["mae"],
                     "mape_test": compute_metrics(self.test, sarima_test_pred)["mape"],
+                    "mbe_test": compute_metrics(self.test, sarima_test_pred)["mbe"],
+                    "abs_mbe_test": compute_metrics(self.test, sarima_test_pred)["abs_mbe"],
                     "aic": float(sarima_final.aic),
                     "aicc": _aicc(float(sarima_final.aic), len(self.train_validation), int(sarima_final.params.shape[0])),
                 },
@@ -349,9 +539,18 @@ class StatisticalModelRunner:
                     "rmse_val": compute_metrics(self.validation, hw_val_pred)["rmse"],
                     "mae_val": compute_metrics(self.validation, hw_val_pred)["mae"],
                     "mape_val": compute_metrics(self.validation, hw_val_pred)["mape"],
+                    "mbe_val": compute_metrics(self.validation, hw_val_pred)["mbe"],
+                    "abs_mbe_val": compute_metrics(self.validation, hw_val_pred)["abs_mbe"],
+                    "rmse_val_orig": np.nan if hw_val_orig_metrics is None else hw_val_orig_metrics["rmse"],
+                    "mae_val_orig": np.nan if hw_val_orig_metrics is None else hw_val_orig_metrics["mae"],
+                    "mape_val_orig": np.nan if hw_val_orig_metrics is None else hw_val_orig_metrics["mape"],
+                    "mbe_val_orig": np.nan if hw_val_orig_metrics is None else hw_val_orig_metrics["mbe"],
+                    "abs_mbe_val_orig": np.nan if hw_val_orig_metrics is None else hw_val_orig_metrics["abs_mbe"],
                     "rmse_test": compute_metrics(self.test, hw_test_pred)["rmse"],
                     "mae_test": compute_metrics(self.test, hw_test_pred)["mae"],
                     "mape_test": compute_metrics(self.test, hw_test_pred)["mape"],
+                    "mbe_test": compute_metrics(self.test, hw_test_pred)["mbe"],
+                    "abs_mbe_test": compute_metrics(self.test, hw_test_pred)["abs_mbe"],
                     "aic": float(getattr(hw_final, "aic", np.nan)),
                     "aicc": float(getattr(hw_final, "aicc", np.nan)),
                 },
@@ -476,29 +675,33 @@ class StatisticalModelRunner:
             isinstance(original_series, pd.Series)
             and not original_series.empty
             and use_log1p
-            and diff_order == 2
+            and diff_order in (1, 2)
         ):
             raw = pd.to_numeric(original_series, errors="coerce").dropna().astype(float)
             x_log = np.log1p(raw)
-            x_d1 = x_log.diff().dropna()
 
             val_start = int(val_idx.min())
             test_start = int(test_idx.min())
 
-            seed_d1_val = float(x_d1[x_d1.index < val_start].iloc[-1])
-            seed_log_val = float(x_log[x_log.index < val_start].iloc[-1])
-            seed_d1_test = float(x_d1[x_d1.index < test_start].iloc[-1])
-            seed_log_test = float(x_log[x_log.index < test_start].iloc[-1])
+            if diff_order == 1:
+                seed_log_val = float(x_log[x_log.index < val_start].iloc[-1])
+                seed_log_test = float(x_log[x_log.index < test_start].iloc[-1])
 
-            def _invert_diff2_log1p(pred_d2: pd.Series, seed_d1: float, seed_log: float) -> pd.Series:
-                d1_pred = seed_d1 + pred_d2.cumsum()
-                log_pred = seed_log + d1_pred.cumsum()
-                return np.expm1(log_pred)
+                sarima_val_orig = np.expm1(seed_log_val + output["sarima_val_pred"].cumsum())
+                hw_val_orig = np.expm1(seed_log_val + output["hw_val_pred"].cumsum())
+                sarima_test_orig = np.expm1(seed_log_test + output["sarima_test_pred"].cumsum())
+                hw_test_orig = np.expm1(seed_log_test + output["hw_test_pred"].cumsum())
+            else:
+                x_d1 = x_log.diff().dropna()
+                seed_d1_val = float(x_d1[x_d1.index < val_start].iloc[-1])
+                seed_log_val = float(x_log[x_log.index < val_start].iloc[-1])
+                seed_d1_test = float(x_d1[x_d1.index < test_start].iloc[-1])
+                seed_log_test = float(x_log[x_log.index < test_start].iloc[-1])
 
-            sarima_val_orig = _invert_diff2_log1p(output["sarima_val_pred"], seed_d1_val, seed_log_val)
-            hw_val_orig = _invert_diff2_log1p(output["hw_val_pred"], seed_d1_val, seed_log_val)
-            sarima_test_orig = _invert_diff2_log1p(output["sarima_test_pred"], seed_d1_test, seed_log_test)
-            hw_test_orig = _invert_diff2_log1p(output["hw_test_pred"], seed_d1_test, seed_log_test)
+                sarima_val_orig = StatisticalModelRunner._invert_diff2_log1p(output["sarima_val_pred"], seed_d1_val, seed_log_val)
+                hw_val_orig = StatisticalModelRunner._invert_diff2_log1p(output["hw_val_pred"], seed_d1_val, seed_log_val)
+                sarima_test_orig = StatisticalModelRunner._invert_diff2_log1p(output["sarima_test_pred"], seed_d1_test, seed_log_test)
+                hw_test_orig = StatisticalModelRunner._invert_diff2_log1p(output["hw_test_pred"], seed_d1_test, seed_log_test)
 
             fig, ax = plt.subplots(figsize=(14, 5))
             ax.plot(raw.index, raw.values, color="black", linewidth=2.2, label="serie_originale", zorder=4)

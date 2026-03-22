@@ -1,0 +1,143 @@
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\base\model.py:607: ConvergenceWarning: Maximum Likelihood optimization failed to converge. Check mle_retvals
+  warnings.warn("Maximum Likelihood optimization failed to "
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:473: ValueWarning: An unsupported index was provided. As a result, forecasts cannot be generated. To use the model for forecasting, use one of the supported classes of index.
+  self._init_dates(dates, freq)
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: FutureWarning: No supported index is available. In the next version, calling this method in a model without a supported index will result in an exception.
+  return get_prediction_index(
+c:\Users\giann\Documents\GitHub\FinalProject\.venv\Lib\site-packages\statsmodels\tsa\base\tsa_model.py:837: ValueWarning: No supported index is available. Prediction results will be given with an integer index beginning at `start`.
+  return get_prediction_index(
+Descriptive analysis completed.
+- series: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_series_clean_v1.csv
+- frequency: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_frequency_distribution_v1.csv
+- central_tendency: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_central_tendency_v1.csv
+- dispersion: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_dispersion_measures_v1.csv
+- outliers: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_outliers_iqr_v1.csv
+- outlier_summary: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_outliers_summary_v1.csv
+- trend_summary: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_trend_summary_v1.csv
+- yoy_variation: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_yoy_variation_details_v1.csv
+- local_outliers: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_local_outliers_yoy_v1.csv
+- local_outlier_summary: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_local_outliers_summary_v1.csv
+Preprocessing completed.
+- preproc_split_summary: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_preproc_split_summary_v1.csv
+- preproc_tests: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_preproc_tests_v1.csv
+- preproc_local_outliers: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_preproc_local_outliers_v1.csv
+- preproc_candidate_tests: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_preproc_candidate_tests_v1.csv
+- preproc_train: C:\Users\giann\Documents\GitHub\FinalProject\Datasets\processed\tavola_1_14_preprocessed_train_v1.csv
+- preproc_val: C:\Users\giann\Documents\GitHub\FinalProject\Datasets\processed\tavola_1_14_preprocessed_val_v1.csv
+- preproc_test: C:\Users\giann\Documents\GitHub\FinalProject\Datasets\processed\tavola_1_14_preprocessed_test_v1.csv
+- preproc_plot_raw_vs_transformed: C:\Users\giann\Documents\GitHub\FinalProject\Results\plots\preprocessing\tavola_1_14_preproc_raw_vs_transformed_v1.png
+- preproc_plot_split_view: C:\Users\giann\Documents\GitHub\FinalProject\Results\plots\preprocessing\tavola_1_14_preproc_split_view_v1.png
+- preproc_plot_acf_pacf: C:\Users\giann\Documents\GitHub\FinalProject\Results\plots\preprocessing\tavola_1_14_preproc_acf_pacf_v1.png
+- preproc_plot_local_outliers: C:\Users\giann\Documents\GitHub\FinalProject\Results\plots\preprocessing\tavola_1_14_preproc_local_outliers_v1.png
+Statistical Step completed. Winner: sarima
+- stat_sarima_grid: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_stat_sarima_grid_v1.csv
+- stat_hw_grid: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_stat_hw_grid_v1.csv
+- stat_summary: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_stat_summary_v1.csv
+- stat_residual_diagnostics: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_stat_residual_diagnostics_v1.csv
+- stat_forecasts: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\tavola_1_14_stat_forecasts_v1.csv
+- stat_winner_params: C:\Users\giann\Documents\GitHub\FinalProject\Results\artifacts\tavola_1_14_stat_winner_params_v1.json
+- stat_plot_forecasts: C:\Users\giann\Documents\GitHub\FinalProject\Results\plots\forecasting\tavola_1_14_stat_forecast_comparison_v1.png
+- stat_plot_residuals: C:\Users\giann\Documents\GitHub\FinalProject\Results\plots\forecasting\tavola_1_14_stat_residuals_diagnostics_v1.png
+- stat_plot_forecasts_original_scale: C:\Users\giann\Documents\GitHub\FinalProject\Results\plots\forecasting\tavola_1_14_stat_forecast_original_scale_v1.png
