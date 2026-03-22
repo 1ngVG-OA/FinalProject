@@ -14,6 +14,8 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -80,6 +82,9 @@ class StatisticalModelRunner:
         validation: pd.Series,
         test: pd.Series,
         config: StatisticalStepConfig | None = None,
+        original_series: pd.Series | None = None,
+        use_log1p: bool = False,
+        diff_order: int = 0,
     ) -> None:
         self.config = config or StatisticalStepConfig()
 
@@ -87,6 +92,10 @@ class StatisticalModelRunner:
         self.validation = self._validate_split(validation, "validation")
         self.test = self._validate_split(test, "test")
         self.train_validation = pd.concat([self.train, self.validation])
+
+        self.original_series = self._validate_original_series(original_series)
+        self.use_log1p = bool(use_log1p)
+        self.diff_order = int(diff_order)
 
     @staticmethod
     def _validate_split(series: pd.Series, name: str) -> pd.Series:
@@ -98,6 +107,21 @@ class StatisticalModelRunner:
         if not s.index.is_monotonic_increasing:
             s = s.sort_index()
         s.name = "value"
+        return s
+
+    @staticmethod
+    def _validate_original_series(series: pd.Series | None) -> pd.Series | None:
+        if series is None:
+            return None
+        if not isinstance(series, pd.Series):
+            raise TypeError("original_series must be a pandas Series or None")
+
+        s = pd.to_numeric(series, errors="coerce").dropna().astype(float)
+        if s.empty:
+            return None
+        if not s.index.is_monotonic_increasing:
+            s = s.sort_index()
+
         return s
 
     def _sarima_candidates(self) -> list[dict[str, Any]]:
@@ -374,6 +398,9 @@ class StatisticalModelRunner:
             "hw_test_pred": pd.Series(np.asarray(hw_test_pred), index=self.test.index),
             "sarima_validation_residuals": sarima_resid,
             "hw_validation_residuals": hw_resid,
+            "original_series": self.original_series,
+            "use_log1p": self.use_log1p,
+            "diff_order": self.diff_order,
         }
 
     @staticmethod
@@ -386,6 +413,7 @@ class StatisticalModelRunner:
         paths = {
             "stat_plot_forecasts": out_dir / "tavola_1_14_stat_forecast_comparison_v1.png",
             "stat_plot_residuals": out_dir / "tavola_1_14_stat_residuals_diagnostics_v1.png",
+            "stat_plot_forecasts_original_scale": out_dir / "tavola_1_14_stat_forecast_original_scale_v1.png",
         }
 
         val_idx = output["validation_actual"].index
@@ -439,6 +467,57 @@ class StatisticalModelRunner:
         fig.tight_layout()
         fig.savefig(paths["stat_plot_residuals"], dpi=150)
         plt.close(fig)
+
+        original_series = output.get("original_series")
+        use_log1p = bool(output.get("use_log1p", False))
+        diff_order = int(output.get("diff_order", 0))
+
+        if (
+            isinstance(original_series, pd.Series)
+            and not original_series.empty
+            and use_log1p
+            and diff_order == 2
+        ):
+            raw = pd.to_numeric(original_series, errors="coerce").dropna().astype(float)
+            x_log = np.log1p(raw)
+            x_d1 = x_log.diff().dropna()
+
+            val_start = int(val_idx.min())
+            test_start = int(test_idx.min())
+
+            seed_d1_val = float(x_d1[x_d1.index < val_start].iloc[-1])
+            seed_log_val = float(x_log[x_log.index < val_start].iloc[-1])
+            seed_d1_test = float(x_d1[x_d1.index < test_start].iloc[-1])
+            seed_log_test = float(x_log[x_log.index < test_start].iloc[-1])
+
+            def _invert_diff2_log1p(pred_d2: pd.Series, seed_d1: float, seed_log: float) -> pd.Series:
+                d1_pred = seed_d1 + pred_d2.cumsum()
+                log_pred = seed_log + d1_pred.cumsum()
+                return np.expm1(log_pred)
+
+            sarima_val_orig = _invert_diff2_log1p(output["sarima_val_pred"], seed_d1_val, seed_log_val)
+            hw_val_orig = _invert_diff2_log1p(output["hw_val_pred"], seed_d1_val, seed_log_val)
+            sarima_test_orig = _invert_diff2_log1p(output["sarima_test_pred"], seed_d1_test, seed_log_test)
+            hw_test_orig = _invert_diff2_log1p(output["hw_test_pred"], seed_d1_test, seed_log_test)
+
+            fig, ax = plt.subplots(figsize=(14, 5))
+            ax.plot(raw.index, raw.values, color="black", linewidth=2.2, label="serie_originale", zorder=4)
+            ax.axvspan(int(val_idx.min()), int(val_idx.max()) + 1, alpha=0.07, color="tab:blue", label="_nolegend_")
+            ax.axvspan(int(test_idx.min()), int(test_idx.max()) + 1, alpha=0.09, color="tab:orange", label="_nolegend_")
+
+            ax.plot(sarima_val_orig.index, sarima_val_orig.values, color="tab:blue", linestyle="--", linewidth=1.8, label="sarima_val_orig")
+            ax.plot(sarima_test_orig.index, sarima_test_orig.values, color="tab:blue", linewidth=2.2, label="sarima_test_orig")
+            ax.plot(hw_val_orig.index, hw_val_orig.values, color="tab:orange", linestyle="--", linewidth=1.5, label="hw_val_orig")
+            ax.plot(hw_test_orig.index, hw_test_orig.values, color="tab:orange", linewidth=1.8, label="hw_test_orig")
+
+            ax.set_title("Step 3 - Forecasts on Original Scale")
+            ax.set_xlabel("Time")
+            ax.set_ylabel("Original value")
+            ax.grid(alpha=0.3)
+            ax.legend(loc="upper left")
+            fig.tight_layout()
+            fig.savefig(paths["stat_plot_forecasts_original_scale"], dpi=150)
+            plt.close(fig)
 
         return paths
 

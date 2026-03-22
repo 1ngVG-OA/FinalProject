@@ -45,27 +45,7 @@ SERIES_CONFIG = {
         "seasonal": True,
         "seasonal_period": 12,
         "diff_order": 2,
-    },
-    "demographic": {
-        "csv_path": DATA_DIR / "demographic.csv",
-        "date_col": "date",
-        "value_col": "values",
-        "freq": "ME",
-        "split": (111, 123),
-        "seasonal": True,
-        "seasonal_period": 12,
-        "diff_order": 2,
-    },
-    "ogrin": {
-        "csv_path": DATA_DIR / "ogrin.csv",
-        "date_col": "date",
-        "value_col": "values",
-        "freq": "D",
-        "split": (106, 136),
-        "seasonal": False,
-        "seasonal_period": 7,
-        "diff_order": 0,
-    },
+    }
 }
 
 # Hyperparameter search space for the autoregressive MLP model.

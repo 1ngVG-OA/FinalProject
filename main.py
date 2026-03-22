@@ -180,6 +180,9 @@ def main() -> None:
 		validation=preproc_output["splits"]["val"],
 		test=preproc_output["splits"]["test"],
 		config=stat_cfg,
+		original_series=series,
+		use_log1p=chosen_cfg.transform.use_log1p,
+		diff_order=chosen_cfg.transform.diff_order,
 	)
 	stat_output = stat_runner.run()
 	stat_paths = _save_statistical_outputs(root, stat_output)
