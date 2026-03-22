@@ -23,14 +23,21 @@ from Project.preprocessing.descriptive_analysis import (
 )
 
 
-def _save_preprocessing_outputs(root: Path, preproc_output: dict, candidate_df: pd.DataFrame) -> dict[str, Path]:
+def _save_preprocessing_outputs(
+	root: Path,
+	preproc: TimeSeriesPreprocessor,
+	preproc_output: dict,
+	candidate_df: pd.DataFrame,
+) -> dict[str, Path]:
 	"""Persist preprocessing artifacts to metrics and processed data folders."""
 
 	metrics_dir = root / "Results" / "metrics"
 	processed_dir = root / "Datasets" / "processed"
+	preproc_plots_dir = root / "Results" / "plots" / "preprocessing"
 
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 	processed_dir.mkdir(parents=True, exist_ok=True)
+	preproc_plots_dir.mkdir(parents=True, exist_ok=True)
 
 	tests_rows = []
 	for split_name, test_dict in preproc_output["tests"].items():
@@ -69,6 +76,9 @@ def _save_preprocessing_outputs(root: Path, preproc_output: dict, candidate_df: 
 	for split_name in ("train", "val", "test"):
 		split_series = preproc_output["splits"][split_name]
 		split_series.rename("value").reset_index().to_csv(output_paths[f"preproc_{split_name}"], index=False)
+
+	plot_paths = preproc.save_preprocessing_plots(preproc_output, preproc_plots_dir)
+	output_paths.update(plot_paths)
 
 	return output_paths
 
@@ -114,7 +124,7 @@ def main() -> None:
 	]
 	candidate_df = preproc.evaluate_candidates(candidate_cfgs)
 
-	preproc_outputs = _save_preprocessing_outputs(root, preproc_output, candidate_df)
+	preproc_outputs = _save_preprocessing_outputs(root, preproc, preproc_output, candidate_df)
 
 	print("Preprocessing completed.")
 	for name, file_path in preproc_outputs.items():

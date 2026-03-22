@@ -14,12 +14,15 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from typing import Any, Iterable
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from statsmodels.tsa.stattools import adfuller, kpss
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
 
 @dataclass(frozen=True)
@@ -326,3 +329,96 @@ class TimeSeriesPreprocessor:
             "tests": tests,
             "local_outliers": outlier_df,
         }
+
+    def save_preprocessing_plots(self, preproc_output: dict[str, Any], out_dir: Path) -> dict[str, Path]:
+        """Generate and save core preprocessing plots."""
+
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        raw = self.series
+        transformed = preproc_output["series_transformed"]
+        splits = preproc_output["splits"]
+        outliers = preproc_output["local_outliers"]
+
+        plot_paths = {
+            "preproc_plot_raw_vs_transformed": out_dir / "tavola_1_14_preproc_raw_vs_transformed_v1.png",
+            "preproc_plot_split_view": out_dir / "tavola_1_14_preproc_split_view_v1.png",
+            "preproc_plot_acf_pacf": out_dir / "tavola_1_14_preproc_acf_pacf_v1.png",
+            "preproc_plot_local_outliers": out_dir / "tavola_1_14_preproc_local_outliers_v1.png",
+        }
+
+        # 1) Raw vs transformed series.
+        fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=False)
+        axes[0].plot(raw.index, raw.values, color="tab:blue", linewidth=2)
+        axes[0].set_title("Raw Series")
+        axes[0].set_xlabel("Year")
+        axes[0].set_ylabel("Value")
+        axes[0].grid(alpha=0.25)
+
+        axes[1].plot(transformed.index, transformed.values, color="tab:orange", linewidth=1.8)
+        axes[1].set_title("Preprocessed Series (Configured Transform)")
+        axes[1].set_xlabel("Year")
+        axes[1].set_ylabel("Transformed value")
+        axes[1].grid(alpha=0.25)
+        fig.tight_layout()
+        fig.savefig(plot_paths["preproc_plot_raw_vs_transformed"], dpi=150)
+        plt.close(fig)
+
+        # 2) Train/Val/Test split visualization.
+        fig, ax = plt.subplots(figsize=(12, 5))
+        ax.plot(splits["train"].index, splits["train"].values, label="train", color="tab:blue")
+        ax.plot(splits["val"].index, splits["val"].values, label="val", color="tab:green")
+        ax.plot(splits["test"].index, splits["test"].values, label="test", color="tab:red")
+        ax.set_title("Preprocessed Series Split (Train / Val / Test)")
+        ax.set_xlabel("Year")
+        ax.set_ylabel("Transformed value")
+        ax.grid(alpha=0.25)
+        ax.legend()
+        fig.tight_layout()
+        fig.savefig(plot_paths["preproc_plot_split_view"], dpi=150)
+        plt.close(fig)
+
+        # 3) ACF/PACF on transformed train split.
+        train_series = splits["train"].dropna()
+        n_lags = max(5, min(20, int(len(train_series) / 3)))
+        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+        plot_acf(train_series, lags=n_lags, ax=axes[0])
+        axes[0].set_title("ACF (Train)")
+        plot_pacf(train_series, lags=n_lags, ax=axes[1], method="ywm")
+        axes[1].set_title("PACF (Train)")
+        fig.tight_layout()
+        fig.savefig(plot_paths["preproc_plot_acf_pacf"], dpi=150)
+        plt.close(fig)
+
+        # 4) Local outliers over YoY changes.
+        fig, ax = plt.subplots(figsize=(12, 5))
+        ax.plot(outliers["year"], outliers["yoy_change"], color="tab:blue", linewidth=1.8, label="YoY change")
+        ax.plot(
+            outliers["year"],
+            outliers["rolling_median"],
+            color="tab:green",
+            linestyle="--",
+            linewidth=1.6,
+            label="Rolling median",
+        )
+        local_mask = outliers["is_local_outlier"]
+        ax.scatter(
+            outliers.loc[local_mask, "year"],
+            outliers.loc[local_mask, "yoy_change"],
+            color="tab:red",
+            s=45,
+            label="Local outliers",
+            zorder=3,
+        )
+        ax.axhline(0.0, color="black", linewidth=1, alpha=0.5)
+        ax.set_title("Local Outliers on YoY Changes (Preprocessing)")
+        ax.set_xlabel("Year")
+        ax.set_ylabel("YoY change")
+        ax.grid(alpha=0.25)
+        ax.legend()
+        fig.tight_layout()
+        fig.savefig(plot_paths["preproc_plot_local_outliers"], dpi=150)
+        plt.close(fig)
+
+        return plot_paths
