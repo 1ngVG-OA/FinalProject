@@ -16,6 +16,11 @@ from Project.preprocessing import (
 	TimeSeriesPreprocessor,
 	TransformConfig,
 )
+from Project.models.statistical import (
+	StatisticalModelRunner,
+	StatisticalStepConfig,
+	infer_seasonal_period_from_index,
+)
 from Project.preprocessing.descriptive_analysis import (
 	DescriptivePaths,
 	load_target_series,
@@ -83,6 +88,40 @@ def _save_preprocessing_outputs(
 	return output_paths
 
 
+def _save_statistical_outputs(root: Path, stat_output: dict) -> dict[str, Path]:
+	"""Persist Step 3 statistical artifacts to metrics/plots/artifacts folders."""
+
+	metrics_dir = root / "Results" / "metrics"
+	plots_dir = root / "Results" / "plots" / "forecasting"
+	artifacts_dir = root / "Results" / "artifacts"
+
+	metrics_dir.mkdir(parents=True, exist_ok=True)
+	plots_dir.mkdir(parents=True, exist_ok=True)
+	artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+	output_paths = {
+		"stat_sarima_grid": metrics_dir / "tavola_1_14_stat_sarima_grid_v1.csv",
+		"stat_hw_grid": metrics_dir / "tavola_1_14_stat_hw_grid_v1.csv",
+		"stat_summary": metrics_dir / "tavola_1_14_stat_summary_v1.csv",
+		"stat_residual_diagnostics": metrics_dir / "tavola_1_14_stat_residual_diagnostics_v1.csv",
+		"stat_forecasts": metrics_dir / "tavola_1_14_stat_forecasts_v1.csv",
+		"stat_winner_params": artifacts_dir / "tavola_1_14_stat_winner_params_v1.json",
+	}
+
+	stat_output["sarima_grid"].to_csv(output_paths["stat_sarima_grid"], index=False)
+	stat_output["hw_grid"].to_csv(output_paths["stat_hw_grid"], index=False)
+	stat_output["summary"].to_csv(output_paths["stat_summary"], index=False)
+	stat_output["residual_diagnostics"].to_csv(output_paths["stat_residual_diagnostics"], index=False)
+	stat_output["forecast_table"].to_csv(output_paths["stat_forecasts"], index=False)
+
+	pd.Series(stat_output["winner_params"]).to_json(output_paths["stat_winner_params"], indent=2)
+
+	plot_paths = StatisticalModelRunner.save_plots(stat_output, plots_dir)
+	output_paths.update(plot_paths)
+
+	return output_paths
+
+
 def main() -> None:
 	"""Run the currently implemented pipeline steps end-to-end."""
 
@@ -128,6 +167,25 @@ def main() -> None:
 
 	print("Preprocessing completed.")
 	for name, file_path in preproc_outputs.items():
+		print(f"- {name}: {file_path}")
+
+	# Step 3 - statistical model (SARIMA) and statistical benchmark (Holt-Winters).
+	seasonal_period = infer_seasonal_period_from_index(preproc_output["splits"]["train"].index)
+	stat_cfg = StatisticalStepConfig(
+		d_values=(2,),
+		seasonal_period=seasonal_period,
+	)
+	stat_runner = StatisticalModelRunner(
+		train=preproc_output["splits"]["train"],
+		validation=preproc_output["splits"]["val"],
+		test=preproc_output["splits"]["test"],
+		config=stat_cfg,
+	)
+	stat_output = stat_runner.run()
+	stat_paths = _save_statistical_outputs(root, stat_output)
+
+	print(f"Statistical Step completed. Winner: {stat_output['winner']}")
+	for name, file_path in stat_paths.items():
 		print(f"- {name}: {file_path}")
 
 
