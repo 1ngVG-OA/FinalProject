@@ -21,6 +21,11 @@ from Project.models.statistical import (
 	StatisticalStepConfig,
 	infer_seasonal_period_from_index,
 )
+from Project.models.ml import (
+	MLModelRunner,
+	MLStepConfig,
+	save_ml_plots,
+)
 from Project.preprocessing.descriptive_analysis import (
 	DescriptivePaths,
 	load_target_series,
@@ -122,6 +127,40 @@ def _save_statistical_outputs(root: Path, stat_output: dict) -> dict[str, Path]:
 	return output_paths
 
 
+def _save_ml_outputs(root: Path, ml_output: dict) -> dict[str, Path]:
+	"""Persist Step 4 ML artifacts to metrics/plots/artifacts folders."""
+
+	metrics_dir = root / "Results" / "metrics"
+	plots_dir = root / "Results" / "plots" / "forecasting"
+	artifacts_dir = root / "Results" / "artifacts"
+
+	metrics_dir.mkdir(parents=True, exist_ok=True)
+	plots_dir.mkdir(parents=True, exist_ok=True)
+	artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+	output_paths = {
+		"ml_grid": metrics_dir / "tavola_1_14_ml_grid_v1.csv",
+		"ml_summary": metrics_dir / "tavola_1_14_ml_summary_v1.csv",
+		"ml_forecasts": metrics_dir / "tavola_1_14_ml_forecasts_v1.csv",
+		"ml_feature_selection": metrics_dir / "tavola_1_14_ml_feature_selection_v1.csv",
+		"ml_winner_params": artifacts_dir / "tavola_1_14_ml_winner_params_v1.json",
+		"ml_config": artifacts_dir / "tavola_1_14_ml_config_v1.json",
+	}
+
+	ml_output["grid"].to_csv(output_paths["ml_grid"], index=False)
+	ml_output["summary"].to_csv(output_paths["ml_summary"], index=False)
+	ml_output["forecast_table"].to_csv(output_paths["ml_forecasts"], index=False)
+	ml_output["feature_selection_report"].to_csv(output_paths["ml_feature_selection"], index=False)
+
+	pd.Series(ml_output["winner_params"]).to_json(output_paths["ml_winner_params"], indent=2)
+	pd.Series(ml_output["config"]).to_json(output_paths["ml_config"], indent=2)
+
+	plot_paths = save_ml_plots(ml_output, plots_dir)
+	output_paths.update(plot_paths)
+
+	return output_paths
+
+
 def main() -> None:
 	"""Run the currently implemented pipeline steps end-to-end."""
 
@@ -189,6 +228,37 @@ def main() -> None:
 
 	print(f"Statistical Step completed. Winner: {stat_output['winner']}")
 	for name, file_path in stat_paths.items():
+		print(f"- {name}: {file_path}")
+
+	# Step 4 - non-neural ML models (tree-based + ensemble).
+	ml_cfg = MLStepConfig(
+		lookback_values=(6, 12),
+		feature_selection="importance",
+		selected_feature_count=6,
+		use_xgboost=False,
+		dt_max_depth=(3, None),
+		dt_min_samples_leaf=(1, 2),
+		rf_n_estimators=(200,),
+		rf_max_depth=(6, None),
+		rf_min_samples_leaf=(1,),
+		gbr_n_estimators=(300,),
+		gbr_learning_rate=(0.05,),
+		gbr_max_depth=(2, 3),
+	)
+	ml_runner = MLModelRunner(
+		train=preproc_output["splits"]["train"],
+		validation=preproc_output["splits"]["val"],
+		test=preproc_output["splits"]["test"],
+		config=ml_cfg,
+		original_series=series,
+		use_log1p=chosen_cfg.transform.use_log1p,
+		diff_order=chosen_cfg.transform.diff_order,
+	)
+	ml_output = ml_runner.run()
+	ml_paths = _save_ml_outputs(root, ml_output)
+
+	print(f"Step 4 ML completed. Winner: {ml_output['winner']}")
+	for name, file_path in ml_paths.items():
 		print(f"- {name}: {file_path}")
 
 
