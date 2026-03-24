@@ -12,9 +12,11 @@ from pathlib import Path
 import pandas as pd
 
 from Project.preprocessing import (
+	DEFAULT_PREPROCESSING_CANDIDATES,
 	PreprocessingConfig,
 	TimeSeriesPreprocessor,
-	TransformConfig,
+	prepare_preprocessing_from_candidates,
+	save_selected_preprocessing_config,
 )
 from Project.models.statistical import (
 	StatisticalModelRunner,
@@ -33,20 +35,26 @@ from Project.preprocessing.descriptive_analysis import (
 )
 
 
+TARGET_SERIES_KEY = "consumption_total"
+
+
 def _save_preprocessing_outputs(
 	root: Path,
 	preproc: TimeSeriesPreprocessor,
 	preproc_output: dict,
 	candidate_df: pd.DataFrame,
+	selected_cfg: PreprocessingConfig,
 ) -> dict[str, Path]:
 	"""Persist preprocessing artifacts to metrics and processed data folders."""
 
 	metrics_dir = root / "Results" / "metrics"
 	processed_dir = root / "Datasets" / "processed"
+	artifacts_dir = root / "Results" / "artifacts"
 	preproc_plots_dir = root / "Results" / "plots" / "preprocessing"
 
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 	processed_dir.mkdir(parents=True, exist_ok=True)
+	artifacts_dir.mkdir(parents=True, exist_ok=True)
 	preproc_plots_dir.mkdir(parents=True, exist_ok=True)
 
 	tests_rows = []
@@ -73,6 +81,7 @@ def _save_preprocessing_outputs(
 		"preproc_tests": metrics_dir / "tavola_1_14_preproc_tests_v1.csv",
 		"preproc_local_outliers": metrics_dir / "tavola_1_14_preproc_local_outliers_v1.csv",
 		"preproc_candidate_tests": metrics_dir / "tavola_1_14_preproc_candidate_tests_v1.csv",
+		"preproc_selected_config": artifacts_dir / "tavola_1_14_preproc_selected_config_v1.json",
 		"preproc_train": processed_dir / "tavola_1_14_preprocessed_train_v1.csv",
 		"preproc_val": processed_dir / "tavola_1_14_preprocessed_val_v1.csv",
 		"preproc_test": processed_dir / "tavola_1_14_preprocessed_test_v1.csv",
@@ -82,6 +91,7 @@ def _save_preprocessing_outputs(
 	tests_df.to_csv(output_paths["preproc_tests"], index=False)
 	preproc_output["local_outliers"].to_csv(output_paths["preproc_local_outliers"], index=False)
 	candidate_df.to_csv(output_paths["preproc_candidate_tests"], index=False)
+	save_selected_preprocessing_config(selected_cfg, output_paths["preproc_selected_config"])
 
 	for split_name in ("train", "val", "test"):
 		split_series = preproc_output["splits"][split_name]
@@ -173,36 +183,28 @@ def main() -> None:
 		results_metrics_dir=root / "Results" / "metrics",
 		results_plots_dir=root / "Results" / "plots" / "descriptive",
 	)
-	descriptive_outputs = run_descriptive_analysis(desc_paths)
+	descriptive_outputs = run_descriptive_analysis(desc_paths, target=TARGET_SERIES_KEY)
 
 	print("Descriptive analysis completed.")
 	for name, file_path in descriptive_outputs.items():
 		print(f"- {name}: {file_path}")
 
 	# Step 2 - preprocessing based on descriptive conclusions.
-	series = load_target_series(dataset_path)
+	series = load_target_series(dataset_path, target=TARGET_SERIES_KEY)
 
-	chosen_cfg = PreprocessingConfig(
-		transform=TransformConfig(
-			use_log1p=True,
-			power_exponent=None,
-			diff_order=1,
-			scale_method="none",
-		),
-		run_shapiro=True,
+	preproc, preproc_output, candidate_df, selected_cfg = prepare_preprocessing_from_candidates(
+		series=series,
+		base_config=PreprocessingConfig(run_shapiro=True),
+		candidate_cfgs=DEFAULT_PREPROCESSING_CANDIDATES,
 	)
-	preproc = TimeSeriesPreprocessor(series, chosen_cfg)
-	preproc_output = preproc.preprocess()
 
-	candidate_cfgs = [
-		TransformConfig(use_log1p=False, diff_order=0, scale_method="none"),
-		TransformConfig(use_log1p=False, diff_order=1, scale_method="none"),
-		TransformConfig(use_log1p=True, diff_order=1, scale_method="none"),
-		TransformConfig(use_log1p=True, diff_order=2, scale_method="none"),
-	]
-	candidate_df = preproc.evaluate_candidates(candidate_cfgs)
-
-	preproc_outputs = _save_preprocessing_outputs(root, preproc, preproc_output, candidate_df)
+	preproc_outputs = _save_preprocessing_outputs(
+		root,
+		preproc,
+		preproc_output,
+		candidate_df,
+		selected_cfg,
+	)
 
 	print("Preprocessing completed.")
 	for name, file_path in preproc_outputs.items():
@@ -221,8 +223,8 @@ def main() -> None:
 		test=preproc_output["splits"]["test"],
 		config=stat_cfg,
 		original_series=series,
-		use_log1p=chosen_cfg.transform.use_log1p,
-		diff_order=chosen_cfg.transform.diff_order,
+		use_log1p=selected_cfg.transform.use_log1p,
+		diff_order=selected_cfg.transform.diff_order,
 	)
 	stat_output = stat_runner.run()
 	stat_paths = _save_statistical_outputs(root, stat_output)
@@ -253,8 +255,8 @@ def main() -> None:
 		test=preproc_output["splits"]["test"],
 		config=ml_cfg,
 		original_series=series,
-		use_log1p=chosen_cfg.transform.use_log1p,
-		diff_order=chosen_cfg.transform.diff_order,
+		use_log1p=selected_cfg.transform.use_log1p,
+		diff_order=selected_cfg.transform.diff_order,
 	)
 	ml_output = ml_runner.run()
 	ml_paths = _save_ml_outputs(root, ml_output)

@@ -14,32 +14,33 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from Project.models.statistical import StatisticalModelRunner, StatisticalStepConfig
-from Project.models.statistical.model_config import infer_seasonal_period_from_index
-from Project.preprocessing import PreprocessingConfig, TimeSeriesPreprocessor, TransformConfig
-from Project.preprocessing.descriptive_analysis import load_target_series
+
+TARGET_SERIES_KEY = "consumption_total"
 
 
 def run_baseline_step3() -> None:
     """Run Step 3 statistical baseline (same config as main.py)."""
 
+    from Project.models.statistical import StatisticalModelRunner, StatisticalStepConfig
+    from Project.models.statistical.model_config import infer_seasonal_period_from_index
+    from Project.preprocessing import (
+        DEFAULT_PREPROCESSING_CANDIDATES,
+        PreprocessingConfig,
+        prepare_preprocessing_from_candidates,
+        save_selected_preprocessing_config,
+    )
+    from Project.preprocessing.descriptive_analysis import load_target_series
+
     root = Path(__file__).resolve().parents[1]
     dataset_path = root / "Datasets" / "Tavola_1.14.csv"
 
-    series = load_target_series(dataset_path)
+    series = load_target_series(dataset_path, target=TARGET_SERIES_KEY)
 
-    chosen_cfg = PreprocessingConfig(
-        transform=TransformConfig(
-            use_log1p=True,
-            power_exponent=None,
-            diff_order=1,
-            scale_method="none",
-        ),
-        run_shapiro=True,
+    _, preproc_output, candidate_df, selected_cfg = prepare_preprocessing_from_candidates(
+        series=series,
+        base_config=PreprocessingConfig(run_shapiro=True),
+        candidate_cfgs=DEFAULT_PREPROCESSING_CANDIDATES,
     )
-
-    preproc = TimeSeriesPreprocessor(series, chosen_cfg)
-    preproc_output = preproc.preprocess()
 
     # Baseline config: same as main.py Step 3
     seasonal_period = infer_seasonal_period_from_index(preproc_output["splits"]["train"].index)
@@ -54,8 +55,8 @@ def run_baseline_step3() -> None:
         test=preproc_output["splits"]["test"],
         config=stat_cfg,
         original_series=series,
-        use_log1p=chosen_cfg.transform.use_log1p,
-        diff_order=chosen_cfg.transform.diff_order,
+        use_log1p=selected_cfg.transform.use_log1p,
+        diff_order=selected_cfg.transform.diff_order,
     )
     output = runner.run()
 
@@ -67,6 +68,8 @@ def run_baseline_step3() -> None:
     plots_dir.mkdir(parents=True, exist_ok=True)
 
     out_paths = {
+        "preproc_candidates": metrics_dir / "tavola_1_14_preproc_candidate_tests_stat_baseline.csv",
+        "preproc_selected_config": artifacts_dir / "tavola_1_14_preproc_selected_config_stat_baseline.json",
         "sarima_grid": metrics_dir / "tavola_1_14_stat_sarima_grid_stat_baseline.csv",
         "hw_grid": metrics_dir / "tavola_1_14_stat_hw_grid_stat_baseline.csv",
         "summary": metrics_dir / "tavola_1_14_stat_summary_stat_baseline.csv",
@@ -74,6 +77,9 @@ def run_baseline_step3() -> None:
         "forecasts": metrics_dir / "tavola_1_14_stat_forecasts_stat_baseline.csv",
         "winner": artifacts_dir / "tavola_1_14_stat_winner_params_stat_baseline.json",
     }
+
+    candidate_df.to_csv(out_paths["preproc_candidates"], index=False)
+    save_selected_preprocessing_config(selected_cfg, out_paths["preproc_selected_config"])
 
     output["sarima_grid"].to_csv(out_paths["sarima_grid"], index=False)
     output["hw_grid"].to_csv(out_paths["hw_grid"], index=False)

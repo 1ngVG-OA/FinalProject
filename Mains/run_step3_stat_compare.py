@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
 from Project.preprocessing.descriptive_analysis import load_target_series
 
 METRICS_DIR = ROOT / "Results" / "metrics"
+TARGET_SERIES_KEY = "consumption_total"
 
 
 def _safe_mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -133,7 +134,7 @@ def build_comparison(raw: pd.Series) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def main() -> None:
-    raw = load_target_series(ROOT / "Datasets" / "Tavola_1.14.csv")
+    raw = load_target_series(ROOT / "Datasets" / "Tavola_1.14.csv", target=TARGET_SERIES_KEY)
     combined, display = build_comparison(raw)
 
     print("\n" + "=" * 120)
@@ -158,11 +159,11 @@ def main() -> None:
 
         if not baseline_pool.empty:
             base_best = baseline_pool.loc[baseline_pool["rmse_test_orig"].idxmin()]
-            print(f"  Baseline winner (RMSE test originale): {base_best['model']} → {base_best['rmse_test_orig']:,.1f} GWh")
+            print(f"  Baseline winner (RMSE test originale): {base_best['model']} -> {base_best['rmse_test_orig']:,.1f} GWh")
 
         if not extended_pool.empty:
             ext_best = extended_pool.loc[extended_pool["rmse_test_orig"].idxmin()]
-            print(f"  Extended winner (RMSE test originale): {ext_best['model']} → {ext_best['rmse_test_orig']:,.1f} GWh")
+            print(f"  Extended winner (RMSE test originale): {ext_best['model']} -> {ext_best['rmse_test_orig']:,.1f} GWh")
 
         if not baseline_pool.empty and not extended_pool.empty:
             base_rmse = baseline_pool["rmse_test_orig"].min()
@@ -170,9 +171,9 @@ def main() -> None:
             improvement = base_rmse - ext_rmse
             pct_change = (improvement / base_rmse * 100) if base_rmse > 0 else 0
             if improvement > 0:
-                print(f"  Miglioramento con Extended: {improvement:,.1f} GWh ({pct_change:+.1f}%) ✓")
+                print(f"  Miglioramento con Extended: {improvement:,.1f} GWh ({pct_change:+.1f}%)")
             else:
-                print(f"  Extended peggiore: {abs(improvement):,.1f} GWh ({pct_change:+.1f}%) ✗")
+                print(f"  Extended peggiore: {abs(improvement):,.1f} GWh ({pct_change:+.1f}%)")
         print()
 
     # Save comparison CSV.

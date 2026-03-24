@@ -23,6 +23,7 @@ from Project.preprocessing.descriptive_analysis import load_target_series
 
 METRICS_DIR = ROOT / "Results" / "metrics"
 ARTIFACTS_DIR = ROOT / "Results" / "artifacts"
+TARGET_SERIES_KEY = "consumption_total"
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +159,7 @@ def build_comparison(raw: pd.Series) -> pd.DataFrame:
 
 
 def main() -> None:
-    raw = load_target_series(ROOT / "Datasets" / "Tavola_1.14.csv")
+    raw = load_target_series(ROOT / "Datasets" / "Tavola_1.14.csv", target=TARGET_SERIES_KEY)
     combined, display = build_comparison(raw)
 
     print_cols = [c for c in display.columns if not c.startswith("_") and c != "step"]
@@ -180,8 +181,8 @@ def main() -> None:
     winner_pool = combined.dropna(subset=["_sort_rmse"])
     if not winner_pool.empty:
         best = winner_pool.loc[winner_pool["_sort_rmse"].idxmin()]
-        print(f"  Miglior modello su RMSE test (scala originale):")
-        print(f"    {best['model']} [{best['experiment']}] → {best['_sort_rmse']:,.1f} GWh")
+        print("  Miglior modello su RMSE test (scala originale):")
+        print(f"    {best['model']} [{best['experiment']}] -> {best['_sort_rmse']:,.1f} GWh")
         print()
 
     # Save.

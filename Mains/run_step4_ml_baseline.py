@@ -11,29 +11,30 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from Project.models.ml import MLModelRunner, MLStepConfig, save_ml_plots
-from Project.preprocessing import PreprocessingConfig, TimeSeriesPreprocessor, TransformConfig
-from Project.preprocessing.descriptive_analysis import load_target_series
+
+TARGET_SERIES_KEY = "consumption_total"
 
 
 def run_baseline_step4() -> None:
+    from Project.models.ml import MLModelRunner, MLStepConfig, save_ml_plots
+    from Project.preprocessing import (
+        DEFAULT_PREPROCESSING_CANDIDATES,
+        PreprocessingConfig,
+        prepare_preprocessing_from_candidates,
+        save_selected_preprocessing_config,
+    )
+    from Project.preprocessing.descriptive_analysis import load_target_series
+
     root = Path(__file__).resolve().parents[1]
     dataset_path = root / "Datasets" / "Tavola_1.14.csv"
 
-    series = load_target_series(dataset_path)
+    series = load_target_series(dataset_path, target=TARGET_SERIES_KEY)
 
-    chosen_cfg = PreprocessingConfig(
-        transform=TransformConfig(
-            use_log1p=True,
-            power_exponent=None,
-            diff_order=1,
-            scale_method="none",
-        ),
-        run_shapiro=True,
+    _, preproc_output, candidate_df, selected_cfg = prepare_preprocessing_from_candidates(
+        series=series,
+        base_config=PreprocessingConfig(run_shapiro=True),
+        candidate_cfgs=DEFAULT_PREPROCESSING_CANDIDATES,
     )
-
-    preproc = TimeSeriesPreprocessor(series, chosen_cfg)
-    preproc_output = preproc.preprocess()
 
     ml_cfg = MLStepConfig(
         lookback_values=(6, 12),
@@ -56,8 +57,8 @@ def run_baseline_step4() -> None:
         test=preproc_output["splits"]["test"],
         config=ml_cfg,
         original_series=series,
-        use_log1p=chosen_cfg.transform.use_log1p,
-        diff_order=chosen_cfg.transform.diff_order,
+        use_log1p=selected_cfg.transform.use_log1p,
+        diff_order=selected_cfg.transform.diff_order,
     )
     output = runner.run()
 
@@ -69,6 +70,8 @@ def run_baseline_step4() -> None:
     plots_dir.mkdir(parents=True, exist_ok=True)
 
     out_paths = {
+        "preproc_candidates": metrics_dir / "tavola_1_14_preproc_candidate_tests_ml_baseline.csv",
+        "preproc_selected_config": artifacts_dir / "tavola_1_14_preproc_selected_config_ml_baseline.json",
         "grid": metrics_dir / "tavola_1_14_ml_grid_v1.csv",
         "summary": metrics_dir / "tavola_1_14_ml_summary_v1.csv",
         "forecasts": metrics_dir / "tavola_1_14_ml_forecasts_v1.csv",
@@ -76,6 +79,9 @@ def run_baseline_step4() -> None:
         "winner": artifacts_dir / "tavola_1_14_ml_winner_params_v1.json",
         "config": artifacts_dir / "tavola_1_14_ml_config_v1.json",
     }
+
+    candidate_df.to_csv(out_paths["preproc_candidates"], index=False)
+    save_selected_preprocessing_config(selected_cfg, out_paths["preproc_selected_config"])
 
     output["grid"].to_csv(out_paths["grid"], index=False)
     output["summary"].to_csv(out_paths["summary"], index=False)
