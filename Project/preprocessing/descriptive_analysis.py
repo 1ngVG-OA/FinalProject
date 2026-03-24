@@ -1,14 +1,13 @@
-# Questo codice è stato creato come alternativa al notebookprincipale. 
-# In questo modo, è possibile eseguire il codice senza dover aprire il notebook, e senza dover installare tutte le dipendenze necessarie per il notebook.
-# Con questo codice i risultati verranno salvati nella cartella "Results" invece che visualizzati nel notebook.
 """Descriptive analysis utilities for Tavola_1.14.
 
-This module implements step 1 of the project pipeline:
-- frequency distribution (absolute and relative),
-- central tendency,
-- dispersion measures,
-- outlier detection,
-- distribution-oriented plots.
+This module implements Step 1 of the project pipeline and provides a
+script-friendly alternative to exploratory notebooks.
+
+Main responsibilities:
+1) load and clean the target annual series from the ISTAT-style CSV,
+2) compute descriptive statistics (frequency, tendency, dispersion),
+3) detect global and local outliers,
+4) generate static plots and persist all outputs under ``Results/``.
 """
 
 from __future__ import annotations
@@ -25,18 +24,22 @@ from scipy import stats
 
 TARGET_COLUMN_INDEX = {
     "production_total": 1,
-    "consumption_total": 12,
 }
 
 TARGET_SERIES_NAME = {
     "production_total": "produzione_lorda_totale",
-    "consumption_total": "consumo_totale",
 }
 
 
 @dataclass(frozen=True)
 class DescriptivePaths:
-    """Container for input/output paths used by descriptive analysis."""
+    """Filesystem paths required by :func:`run_descriptive_analysis`.
+
+    Attributes:
+        dataset_path: Input CSV path.
+        results_metrics_dir: Output directory for CSV metric tables.
+        results_plots_dir: Output directory for PNG plots.
+    """
 
     dataset_path: Path
     results_metrics_dir: Path
@@ -44,13 +47,20 @@ class DescriptivePaths:
 
 
 def _parse_istat_number(value: str) -> float:
-    """Parse ISTAT-style numeric strings.
+    """Parse ISTAT-style numeric strings into float.
+
+    Args:
+        value: Raw string value from CSV.
+
+    Returns:
+        Parsed numeric value as float, or ``np.nan`` for missing/non-parseable
+        tokens.
 
     Examples:
-    - '1.150' -> 1150
-    - '2.575' -> 2575
-    - '....'  -> NaN
-    - '-'     -> NaN
+        - ``"1.150"`` -> ``1150.0``
+        - ``"2.575"`` -> ``2575.0``
+        - ``"...."``  -> ``np.nan``
+        - ``"-"``     -> ``np.nan``
     """
 
     if value is None:
@@ -73,12 +83,21 @@ def _parse_istat_number(value: str) -> float:
 def load_target_series(dataset_path: Path, target: str = "production_total") -> pd.Series:
     """Load annual target series from Tavola_1.14.csv.
 
-    The CSV contains multi-row headers; data rows are recognized by a 4-digit year
-    in column 0.
+    The CSV contains multi-row headers; valid data rows are identified by a
+    4-digit year in column 0.
 
-    Supported targets:
-    - production_total: "Produzione lorda - Totale" (column index 1)
-    - consumption_total: "Totale" under consumption block (column index 12)
+    Args:
+        dataset_path: Absolute or relative path to ``Tavola_1.14.csv``.
+        target: Logical target key. Supported value: ``"production_total"``.
+
+    Returns:
+        Clean annual series indexed by year.
+
+    Raises:
+        ValueError: If ``target`` is not supported.
+
+    Supported target:
+    - production_total: "Produzione lorda - Totale" (column index 1).
     """
 
     if target not in TARGET_COLUMN_INDEX:
@@ -105,7 +124,15 @@ def load_target_series(dataset_path: Path, target: str = "production_total") -> 
 
 
 def _frequency_distribution(series: pd.Series, n_bins: int | None = None) -> pd.DataFrame:
-    """Create binned absolute/relative frequency table."""
+    """Build binned absolute and relative frequency distribution.
+
+    Args:
+        series: Input numeric series.
+        n_bins: Number of bins. If ``None``, Sturges' rule is used.
+
+    Returns:
+        DataFrame with class interval, absolute frequency and relative frequency.
+    """
 
     x = series.dropna()
     if n_bins is None:
@@ -125,7 +152,14 @@ def _frequency_distribution(series: pd.Series, n_bins: int | None = None) -> pd.
 
 
 def _central_tendency(series: pd.Series) -> pd.DataFrame:
-    """Compute mean, median and mode."""
+    """Compute central tendency measures.
+
+    Args:
+        series: Input numeric series.
+
+    Returns:
+        One-row DataFrame containing mean, median and mode.
+    """
 
     x = series.dropna()
     modes = x.mode()
@@ -143,7 +177,15 @@ def _central_tendency(series: pd.Series) -> pd.DataFrame:
 
 
 def _dispersion_measures(series: pd.Series) -> pd.DataFrame:
-    """Compute range, variance, std, coefficient of variation and IQR."""
+    """Compute dispersion indicators.
+
+    Args:
+        series: Input numeric series.
+
+    Returns:
+        One-row DataFrame with range, variance, standard deviation,
+        coefficient of variation and IQR.
+    """
 
     x = series.dropna()
     q1 = float(x.quantile(0.25))
@@ -168,7 +210,16 @@ def _dispersion_measures(series: pd.Series) -> pd.DataFrame:
 
 
 def _outlier_table_iqr(series: pd.Series) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Detect outliers with the IQR rule and return detailed + summary tables."""
+    """Detect global outliers using the IQR rule.
+
+    Args:
+        series: Input numeric series.
+
+    Returns:
+        A tuple ``(details, summary)`` where:
+        - ``details`` lists outlier years and values,
+        - ``summary`` stores fences and aggregate outlier counts/ratios.
+    """
 
     x = series.dropna()
     q1 = x.quantile(0.25)
@@ -202,7 +253,15 @@ def _outlier_table_iqr(series: pd.Series) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def _trend_validation(series: pd.Series) -> pd.DataFrame:
-    """Validate long-run trend numerically on yearly level series."""
+    """Evaluate long-run trend with linear and rank-based statistics.
+
+    Args:
+        series: Input annual series on original scale.
+
+    Returns:
+        One-row DataFrame with slope, p-values, R^2, Spearman correlation and
+        year-over-year sign shares.
+    """
 
     x = series.dropna().astype(float)
     years = x.index.to_numpy(dtype=float)
@@ -242,7 +301,19 @@ def _local_outliers_on_variation(
     window: int = 11,
     threshold: float = 3.5,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Detect local anomalies on year-over-year changes using rolling MAD."""
+    """Detect local anomalies on YoY changes using robust local scoring.
+
+    The method uses rolling MAD on residuals from a rolling median baseline,
+    with a rolling-std fallback when MAD is near zero.
+
+    Args:
+        series: Input annual level series.
+        window: Centered rolling window size.
+        threshold: Absolute score threshold for anomaly flagging.
+
+    Returns:
+        A tuple ``(details, local_outliers, summary)``.
+    """
 
     x = series.dropna().astype(float)
     yoy = x.diff().dropna()
@@ -296,7 +367,16 @@ def _local_outliers_on_variation(
 
 
 def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: Path) -> None:
-    """Save baseline series plot and descriptive distribution plots."""
+    """Generate and save descriptive plots to disk.
+
+    Args:
+        series: Clean target series.
+        freq_df: Frequency distribution table used by frequency plot.
+        out_dir: Destination directory for PNG files.
+
+    Returns:
+        None. Files are written as side effects.
+    """
 
     out_dir.mkdir(parents=True, exist_ok=True)
     x = series.dropna()
@@ -462,7 +542,15 @@ def run_descriptive_analysis(
     paths: DescriptivePaths,
     target: str = "production_total",
 ) -> dict[str, Path]:
-    """Run full descriptive analysis and persist tables/plots."""
+    """Run full descriptive analysis and persist CSV/PNG artifacts.
+
+    Args:
+        paths: Input/output path container.
+        target: Target key to extract from source CSV.
+
+    Returns:
+        Mapping of artifact logical names to output paths.
+    """
 
     paths.results_metrics_dir.mkdir(parents=True, exist_ok=True)
     paths.results_plots_dir.mkdir(parents=True, exist_ok=True)

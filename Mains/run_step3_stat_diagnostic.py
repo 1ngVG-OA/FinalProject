@@ -20,7 +20,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 METRICS_DIR = ROOT / "Results" / "metrics"
-TARGET_SERIES_KEY = "consumption_total"
+TARGET_SERIES_KEY = "production_total"
 
 
 def _safe_mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:

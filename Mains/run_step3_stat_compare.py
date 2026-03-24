@@ -22,7 +22,7 @@ if str(ROOT) not in sys.path:
 from Project.preprocessing.descriptive_analysis import load_target_series
 
 METRICS_DIR = ROOT / "Results" / "metrics"
-TARGET_SERIES_KEY = "consumption_total"
+TARGET_SERIES_KEY = "production_total"
 
 
 def _safe_mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:

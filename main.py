@@ -35,7 +35,7 @@ from Project.preprocessing.descriptive_analysis import (
 )
 
 
-TARGET_SERIES_KEY = "consumption_total"
+TARGET_SERIES_KEY = "production_total"
 
 
 def _save_preprocessing_outputs(

@@ -1,2 +1,0 @@
-n_observations,start_year,end_year,slope_per_year,slope_p_value,r_squared,spearman_rho,spearman_p_value,positive_yoy_share,negative_yoy_share,zero_yoy_share,intercept,slope_std_err
-83,1931,2014,4388.9965690873405,5.730592401386445e-56,0.9541039721969689,0.992464632047353,1.252025995902193e-75,0.8536585365853658,0.14634146341463414,0.0,-8522369.149158834,106.95779224769423

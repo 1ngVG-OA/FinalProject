@@ -1,11 +1,16 @@
-"""Utilities to auto-select and persist preprocessing decisions.
-
-This module turns Step 2 preprocessing into a single source of truth:
-- evaluate candidate transform configs,
-- select the best candidate with deterministic ranking rules,
-- persist/load the selected configuration as a JSON artifact,
-- build a preprocessor already aligned with the selected settings.
-"""
+# Automatic configuration utilities for Step 2 preprocessing.
+#
+# This module centralizes how preprocessing settings are chosen and persisted.
+# It supports four core operations:
+#
+# 1. evaluate multiple transformation candidates on the training split,
+# 2. select the best candidate with deterministic ranking rules,
+# 3. save/load the selected configuration as JSON,
+# 4. build and run a preprocessor aligned with the selected configuration.
+#
+# The intent is to keep Step 2 reproducible and avoid ad-hoc manual choices
+# between runs.
+#
 
 from __future__ import annotations
 
@@ -24,7 +29,9 @@ from Project.preprocessing.time_series_preprocessor import (
     TransformConfig,
 )
 
-
+# Candidate transformation configurations evaluated by default.
+#
+# Selection policy is implemented in select_best_transform_config.
 DEFAULT_PREPROCESSING_CANDIDATES: tuple[TransformConfig, ...] = (
     TransformConfig(use_log1p=False, diff_order=0, scale_method="none"),
     TransformConfig(use_log1p=False, diff_order=1, scale_method="none"),
@@ -32,17 +39,28 @@ DEFAULT_PREPROCESSING_CANDIDATES: tuple[TransformConfig, ...] = (
     TransformConfig(use_log1p=True, diff_order=2, scale_method="none"),
 )
 
-
 def select_best_transform_config(candidate_df: pd.DataFrame) -> TransformConfig:
-    """Select the best transform config from candidate stationarity report.
-
-    Ranking policy:
-    1) prefer rows where ADF and KPSS both indicate stationarity,
-    2) then maximize KPSS p-value,
-    3) then prefer lower differencing order,
-    4) then minimize ADF p-value,
-    5) deterministic tie-break by log flag.
-    """
+    #Select the best transformation candidate from evaluation results.
+    #
+    # The ranking is deterministic and prioritizes stationary training series.
+    # Ranking criteria (in order):
+    #
+    # 1. both_stationary: True when both ADF and KPSS indicate stationarity,
+    # 2. higher KPSS p-value,
+    # 3. lower differencing order,
+    # 4. lower ADF p-value,
+    # 5. prefer log1p when all previous criteria tie.
+    #
+    #Args:
+    #     candidate_df: DataFrame returned by evaluate_candidates containing at
+    #         least transformation fields and stationarity-test columns.
+    #
+    #Returns:
+    #    The selected TransformConfig.
+    #
+    #Raises:
+    #    ValueError: If candidate_df does not include required columns.
+    #
 
     required_cols = {
         "use_log1p",
@@ -82,9 +100,17 @@ def select_best_transform_config(candidate_df: pd.DataFrame) -> TransformConfig:
         scale_method=str(best["scale_method"]),
     )
 
-
 def save_selected_preprocessing_config(config: PreprocessingConfig, output_path: Path) -> Path:
-    """Persist selected preprocessing config as JSON artifact."""
+    # Persist a preprocessing configuration to JSON.
+    #
+    # Args:
+    #     config: PreprocessingConfig to serialize.
+    #     output_path: Destination JSON path. Parent directories are created
+    #         automatically if missing.
+    #
+    # Returns:
+    #     The resolved output path used for writing.
+    #
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -93,9 +119,22 @@ def save_selected_preprocessing_config(config: PreprocessingConfig, output_path:
     output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return output_path
 
-
 def load_selected_preprocessing_config(input_path: Path) -> PreprocessingConfig:
-    """Load preprocessing config artifact and rebuild dataclass structure."""
+    # Load a preprocessing configuration from a JSON artifact.
+    #
+    # Args:
+    #     input_path: Path to a JSON file previously produced by
+    #         save_selected_preprocessing_config.
+    #
+    # Returns:
+    #     A reconstructed PreprocessingConfig instance.
+    #
+    # Notes:
+    #     - The JSON file is expected to contain at least the keys for split,
+    #       transform, and outliers.
+    #     - Missing optional keys fall back to safe defaults:
+    #       run_shapiro=False and shapiro_max_n=5000.
+    #
 
     payload = json.loads(Path(input_path).read_text(encoding="utf-8"))
     split_cfg = payload.get("split", {})
@@ -110,13 +149,32 @@ def load_selected_preprocessing_config(input_path: Path) -> PreprocessingConfig:
         shapiro_max_n=int(payload.get("shapiro_max_n", 5000)),
     )
 
-
 def prepare_preprocessing_from_candidates(
     series: pd.Series,
     base_config: PreprocessingConfig | None = None,
     candidate_cfgs: Iterable[TransformConfig] = DEFAULT_PREPROCESSING_CANDIDATES,
 ) -> tuple[TimeSeriesPreprocessor, dict, pd.DataFrame, PreprocessingConfig]:
-    """Run candidate search and return preprocessor output with selected config."""
+    # Build and run preprocessing using automatic candidate selection.
+    #
+    # Workflow:
+    #     1) evaluate candidate transform configurations,
+    #     2) select best transform,
+    #     3) merge it into a final PreprocessingConfig,
+    #     4) run preprocess() with the selected configuration.
+    #
+    # Args:
+    #     series: Raw univariate time series to preprocess.
+    #     base_config: Base configuration carrying split/outlier/test settings.
+    #         If None, a default PreprocessingConfig(run_shapiro=True) is used.
+    #     candidate_cfgs: Iterable of TransformConfig candidates to evaluate.
+    #
+    # Returns:
+    #     A 4-tuple:
+    #         - preproc: configured TimeSeriesPreprocessor,
+    #         - preproc_output: output dictionary returned by preprocess(),
+    #         - candidate_df: candidate evaluation table,
+    #         - selected_cfg: final selected PreprocessingConfig.
+    #
 
     if base_config is None:
         base_config = PreprocessingConfig(run_shapiro=True)

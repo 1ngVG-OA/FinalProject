@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-TARGET_SERIES_KEY = "consumption_total"
+TARGET_SERIES_KEY = "production_total"
 
 
 def run_extended_step4() -> None:
