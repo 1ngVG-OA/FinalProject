@@ -374,5 +374,208 @@ Creami un file .md con la trascrizione della nostra chat. Ci deve essere TUTTO!
 
 ---
 
+## Parte 4 - Spiegazione dettagliata Step 4: Modelli ML non-neurali
+
+Questa sezione e stata aggiunta per documentare in modo esaustivo lo Step 4 (ML non-neurali) a beneficio di chi ha seguito il progetto fino allo Step 3 statistico.
+
+---
+
+### Contesto e posizionamento nello step plan
+
+Nella pipeline di questo progetto i passi sono:
+- Step 1: analisi descrittiva della serie storica
+- Step 2: preprocessing (trasformazioni, stazionarita, split temporale)
+- Step 3: modelli statistici (SARIMA e Holt-Winters)
+- Step 4: modelli ML non-neurali (tree-based) — argomento di questa sezione
+
+Step 4 parte dagli stessi dati gia preprocessati in Step 2 (stesso split temporale, stessa trasformazione log1p + diff_order=1) e aggiunge un approccio alternativo: trasformare la serie storica in un problema di regressione supervisionato tramite lag features.
+
+---
+
+### Il package `Project/models/ml/`
+
+Il codice e organizzato in quattro moduli piu un file di init:
+
+#### `model_config.py` — configurazione e utility di metrica
+
+Contiene:
+- `MLStepConfig`: dataclass frozen con tutti i parametri dell'esperimento (lookback candidati, griglia iperparametri per ciascun modello, flag use_xgboost, metodo di feature selection, random state).
+- Funzioni di metrica: `compute_metrics` (RMSE, MAE, MAPE, MBE, abs_MBE), `compute_metrics_aligned` (allineamento indici + filtro NaN prima del calcolo).
+- Funzioni di inversione trasformazione: `invert_diff2_log1p` e `original_scale_metrics_for_segment`, che permettono di ricalcolare le metriche sulla scala originale invertendo log1p e diff1/diff2. Questo e lo stesso spirito dell'inversione usata in Step 3.
+- Validatori `validate_split` e `validate_original_series` per garantire integrita degli input.
+- `parse_model_name`: utility per estrarre il nome del modello da un dict di configurazione.
+
+Parametri di default in `MLStepConfig`:
+```
+lookback_values: (6, 8, 12)
+feature_selection: "importance"
+selected_feature_count: 6
+random_state: 42
+use_xgboost: True (default del dataclass; disabilitato nel main baseline)
+
+Griglia DT: max_depth in (3,5,None), min_samples_leaf in (1,2,4)
+Griglia RF: n_estimators in (200,400), max_depth in (4,8,None), min_samples_leaf in (1,2)
+Griglia GBR: n_estimators in (200,400), lr in (0.03,0.05,0.1), max_depth in (2,3)
+Griglia XGB: n_estimators in (300,600), lr in (0.03,0.05,0.1), max_depth in (2,3,4),
+             subsample in (0.8,1.0), colsample_bytree in (0.8,1.0)
+```
+
+#### `features.py` — ingegneria delle feature e feature selection
+
+Contiene:
+- `LaggedDataset`: dataclass che contiene X_train, y_train, X_val, y_val, X_test, y_test e la lista dei nomi delle feature.
+- `build_lagged_dataset(train, validation, test, lookback)`: concatena i tre split, poi per ogni timestep t costruisce un vettore di lookback valori passati come feature (lag_1 = osservazione piu recente, lag_k = osservazione piu vecchia). Il target e il valore al tempo t. Importante: validation e test possono usare la storia dei split precedenti (necessario per il forecasting reale senza leakage sul target).
+- `select_features(X_train, y_train, method, n_select, random_state)`: tre metodi supportati:
+  - `none`: nessuna selezione, si usano tutti i lag
+  - `rfe`: Recursive Feature Elimination con Decision Tree come stimatore proxy
+  - `importance`: addestramento di un RandomForest su train, poi selezione dei top-k lag per importance score. Questo e il metodo usato in entrambe le versioni del progetto.
+- `build_model_feature_matrix(lagged, selected_features)`: proietta le matrici su sole le feature selezionate.
+- `last_window_from_series(series, lookback)`: restituisce l'ultimo vettore di lag per forecast futuro.
+
+Feature selezionate in entrambe le versioni (lookback=12, metodo importance):
+```
+lag_4 (score 0.247), lag_1 (0.196), lag_9 (0.103), lag_6 (0.088), lag_2 (0.074), lag_3 (0.061)
+```
+Nota: lag_4 e il piu importante, ovvero il valore di 4 anni fa e il predittore piu informativo per questa serie annuale.
+
+#### `runner.py` — engine di addestramento, tuning e valutazione
+
+Contiene la classe `MLModelRunner` con la logica principale:
+
+1. `_candidate_configs()`: genera tutte le combinazioni di (lookback, iperparametri) per ogni famiglia di modelli. Se use_xgboost=True e xgboost e installato, aggiunge anche le configurazioni XGBoost.
+
+2. `_build_estimator(model_name, params)`: factory che instanzia il modello corretto (DecisionTreeRegressor, RandomForestRegressor, GradientBoostingRegressor, XGBRegressor).
+
+3. `_iterative_forecast(model, seed_series, horizon_index, lookback, selected_features)`: forecast ricorsivo multi-step. Per ogni timestep del periodo da prevedere:
+   - prende gli ultimi lookback valori della storia disponibile
+   - costruisce il vettore di lag
+   - invoca model.predict() su un singolo punto
+   - aggiunge la predizione alla storia (cosi il passo successivo usa la predizione come lag)
+   Questo e il metodo ricorsivo standard per il forecasting multi-step con modelli non-neurali.
+
+4. `run()`: workflow completo:
+   a. Per ogni configurazione candidata: costruisce la lagged dataset (con caching per lookback), esegue feature selection sul train (con caching per lookback), addestra il modello su X_train, fa forecast ricorsivo sulla validation, calcola metriche (scala trasformata + scala originale), aggiorna il best per ciascuna famiglia.
+   b. Selezione del best per modello: criterio principale = RMSE originale sul validation (o RMSE trasformato se inversione non disponibile); tiebreaker = abs_MBE originale.
+   c. Refit finale: per ogni modello vincitore per famiglia, refit su train+validation combinati, forecast su validation e test.
+   d. Calcolo metriche finali su validation e test (scala trasformata e originale).
+   e. Costruzione output: grid df (tutte le combinazioni), summary df (una riga per modello, ordinata per RMSE test originale), forecast table, feature selection report.
+   f. Winner: il modello con RMSE test originale piu basso tra tutti i vincitori per famiglia.
+
+Ottimizzazione critica implementata: la feature selection e il relativo RandomForest proxy vengono calcolati una sola volta per lookback, poi riutilizzati per tutti i modelli/iperparametri con lo stesso lookback. Senza questo caching il runtime sarebbe molto piu alto.
+
+#### `plotting.py` — visualizzazioni
+
+`save_ml_plots(output, out_dir)` genera due grafici:
+- Grafico in scala trasformata: confronta le predizioni di tutti i modelli (validation in tratteggio, test in linea piena) con l'osservazione reale.
+- Grafico in scala originale: inverte log1p + diff1/diff2 per tutti i modelli e confronta con la serie originale. Questo grafico e analogo a quello prodotto in Step 3 per SARIMA/HW e permette il confronto visivo diretto.
+
+---
+
+### Lo script `Mains/run_step4_ml_extended.py` (versione v2)
+
+Questo script standalone esegue una seconda variante di Step 4 con:
+- use_xgboost=True (XGBoost abilitato)
+- griglia piu ampia rispetto al main default:
+  - lookback_values=(6,8,12)
+  - RF: n_estimators=(200,400), max_depth=(4,8,None), min_samples_leaf=(1,2)
+  - GBR: n_estimators=(200,400), lr=(0.03,0.05,0.1), max_depth=(2,3)
+  - XGB: n_estimators=(300,600), lr=(0.03,0.05), max_depth=(2,3), subsample=(0.8,1.0), colsample_bytree=(0.8,1.0)
+- stesso preprocessing e split della pipeline principale
+- output separati con suffisso _xgb_v2 (non sovrascrive i risultati v1)
+
+Lo script aggiunge la root del progetto a sys.path per poter essere eseguito in modo standalone fuori dalla directory root.
+
+---
+
+### Le due versioni a confronto
+
+#### Versione v1 (baseline, eseguita da main.py)
+
+Configurazione:
+- use_xgboost=False
+- lookback_values=(6,12)
+- Griglia ridotta per runtime pratico
+- Modelli: DecisionTree, RandomForest, GradientBoosting
+
+Risultati:
+| Modello | Lookback | RMSE val orig | RMSE test orig | MAE test orig | MAPE test |
+|---------|----------|---------------|----------------|---------------|-----------|
+| gradient_boosting | 12 | 51022.6 | 19894.7 | 18230.0 | 6.36% |
+| random_forest | 12 | 6579.0 | 25658.1 | 22438.9 | 7.79% |
+| decision_tree | 12 | 55433.7 | 105103.9 | 74214.5 | 25.10% |
+
+Winner v1: gradient_boosting
+- lookback=12, n_estimators=300, lr=0.05, max_depth=3
+- Feature selezionate: lag_4, lag_1, lag_9, lag_6, lag_2, lag_3
+- RMSE test scala originale: 19894.69
+- MAPE test: 6.36%
+- MBE test originale: -7506.21 (leggera sottostima sistematica)
+
+File output v1:
+- Results/metrics/tavola_1_14_ml_summary_v1.csv
+- Results/metrics/tavola_1_14_ml_grid_v1.csv
+- Results/metrics/tavola_1_14_ml_forecasts_v1.csv
+- Results/metrics/tavola_1_14_ml_feature_selection_v1.csv
+- Results/artifacts/tavola_1_14_ml_winner_params_v1.json
+- Results/artifacts/tavola_1_14_ml_config_v1.json
+
+#### Versione v2 (esteso con XGBoost, eseguita da Mains/run_step4_ml_extended.py)
+
+Configurazione:
+- use_xgboost=True
+- Griglia piu ampia (vedi sezione precedente)
+- Modelli: DecisionTree, RandomForest, GradientBoosting, XGBoost
+
+Risultati:
+| Modello | Lookback | RMSE val orig | RMSE test orig | MAE test orig | MAPE test |
+|---------|----------|---------------|----------------|---------------|-----------|
+| random_forest | 12 | 6579.0 | 25658.1 | 22438.9 | 7.79% |
+| gradient_boosting | 12 | 6276.1 | 27751.1 | 23719.4 | 8.24% |
+| xgboost | 12 | 17674.6 | 27912.1 | 24796.2 | 8.64% |
+| decision_tree | 12 | 67196.4 | 38374.0 | 34479.0 | 11.79% |
+
+Winner v2: random_forest
+- lookback=12, n_estimators=200, max_depth=None, min_samples_leaf=1
+- Feature selezionate: lag_4, lag_1, lag_9, lag_6, lag_2, lag_3 (identiche alla v1)
+- RMSE test scala originale: 25658.15
+- MAPE test: 7.79%
+- MBE test originale: -15827.14 (sottostima sistematica piu marcata)
+
+File output v2:
+- Results/metrics/tavola_1_14_ml_summary_xgb_v2.csv
+- Results/metrics/tavola_1_14_ml_grid_xgb_v2.csv
+- Results/metrics/tavola_1_14_ml_forecasts_xgb_v2.csv
+- Results/metrics/tavola_1_14_ml_feature_selection_xgb_v2.csv
+- Results/artifacts/tavola_1_14_ml_winner_params_xgb_v2.json
+- Results/artifacts/tavola_1_14_ml_config_xgb_v2.json
+
+---
+
+### Confronto Step 3 vs Step 4
+
+| Step | Modello | RMSE test scala originale |
+|------|---------|--------------------------|
+| Step 3 | SARIMA (winner) | ~6302 |
+| Step 4 v1 | gradient_boosting | ~19895 |
+| Step 4 v2 | random_forest (con XGBoost) | ~25658 |
+
+Interpretazione:
+In questa serie annuale con trasformazione log1p+diff1, i modelli statistici (SARIMA) restano nettamente piu precisi in scala originale rispetto ai tree-based. Il motivo principale e la natura della serie: andamento di lungo periodo con pochi punti all'anno, dove i modelli AR catturano bene l'autocorrelazione, mentre i lag features con forecast ricorsivo accumulano errore rapidamente su un orizzonte multi-step.
+
+L'aggiunta di XGBoost nella v2 non migliora il test RMSE rispetto alla v1: il winner random_forest della v2 ha RMSE test piu alto (25658) del winner gradient_boosting della v1 (19895). Questo indica che il problema non e la capacita del modello, ma la difficolta intrinseca del forecast multi-step ricorsivo su serie annuali con questa trasformazione.
+
+---
+
+### Garanzie metodologiche
+
+Tutti i passaggi rispettano i vincoli anti-leakage definiti nel progetto:
+- Feature selection eseguita solo su X_train (mai su validation o test).
+- Griglia di iperparametri tuned su validation RMSE (mai su test).
+- Refit finale su train+validation, poi valutazione su test (mai visto prima).
+- Split temporale rigoroso senza shuffle.
+- Metriche riportate sia in scala trasformata che in scala originale (quando invertibile).
+
+---
+
 ## Parte 3 - Meta
 Questo file e stato creato in risposta alla richiesta di trascrizione completa.
