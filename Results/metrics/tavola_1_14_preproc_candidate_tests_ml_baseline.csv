@@ -3,3 +3,8 @@ False,,0,none,1.0,0.01,False,False
 False,,1,none,0.00038612006272480256,0.01,True,False
 True,,1,none,4.989482997300398e-07,0.1,True,True
 True,,2,none,4.2432329179326785e-07,0.1,True,True
+False,0.5,1,none,1.4930874048716314e-05,0.05835382073091204,True,True
+False,1.5,1,none,0.9254722603599194,0.01,False,False
+False,2.0,1,none,0.9797121177143262,0.01,False,False
+False,0.5,0,none,0.993428443262667,0.01,False,False
+True,,0,none,0.852097833467067,0.01,False,False

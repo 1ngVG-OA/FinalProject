@@ -139,6 +139,23 @@ def build_forecast_table(
 
 
 def select_winner(summary: pd.DataFrame) -> tuple[str, pd.Series]:
-    """Select winner model by test RMSE then test MAE."""
-    best_row = summary.sort_values(["rmse_test", "mae_test"], ascending=[True, True]).iloc[0]
+    """Select winner model by validation metrics to avoid test leakage.
+
+    Preference order:
+    1) original-scale validation metrics (if available),
+    2) transformed validation metrics as fallback.
+    """
+    sort_df = summary.copy()
+
+    if {"rmse_val_orig", "mae_val_orig"}.issubset(sort_df.columns):
+        sort_df["_rank_rmse_val"] = sort_df["rmse_val_orig"].fillna(sort_df["rmse_val"])
+        sort_df["_rank_mae_val"] = sort_df["mae_val_orig"].fillna(sort_df["mae_val"])
+    else:
+        sort_df["_rank_rmse_val"] = sort_df["rmse_val"]
+        sort_df["_rank_mae_val"] = sort_df["mae_val"]
+
+    best_row = sort_df.sort_values(
+        ["_rank_rmse_val", "_rank_mae_val", "aic"],
+        ascending=[True, True, True],
+    ).iloc[0]
     return str(best_row["model"]), best_row
