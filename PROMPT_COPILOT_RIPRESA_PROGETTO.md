@@ -44,6 +44,44 @@ Voglio riprendere esattamente lo stato del lavoro raggiunto su un altro PC.
 - Step 4 ML v1: winner gradient_boosting, RMSE test originale circa 19894.69.
 - Step 4 ML v2 (XGBoost on): winner random_forest, RMSE test originale circa 25658.15.
 
+### Dettaglio Step 4 ML non-neurali
+
+#### Architettura `Project/models/ml/`
+- `model_config.py`: MLStepConfig (parametri), metriche (RMSE/MAE/MAPE/MBE), inversione trasformazioni (log1p+diff1/diff2), validatori input.
+- `features.py`: build_lagged_dataset (matrice supervisionata con lag features), select_features (metodi: none/rfe/importance), build_model_feature_matrix.
+- `runner.py`: MLModelRunner — grid search su validation, caching FS per lookback, forecast ricorsivo multi-step, refit su train+val, metriche in scala trasformata e originale, selezione winner.
+- `plotting.py`: grafici scala trasformata e scala originale per tutti i modelli.
+
+#### Pipeline Step 4
+1. Stessa serie preprocessata di Step 2 (log1p + diff_order=1) e stesso split 80/10/10.
+2. Costruzione matrice supervisionata con lookback k (lag_1...lag_k come feature, valore corrente come target).
+3. Feature selection su solo train (metodo importance: RF proxy). Le 6 feature selezionate con lookback=12: lag_4, lag_1, lag_9, lag_6, lag_2, lag_3.
+4. Grid search: ogni configurazione (modello + iperparametri + lookback) viene valutata sul validation set con RMSE originale.
+5. Refit del winner per famiglia su train+validation combinati.
+6. Forecast ricorsivo sul test: le predizioni vengono reimmesse come lag per i passi successivi.
+7. Inversione log1p+diff per metriche in scala originale.
+
+#### Versione v1 (baseline — eseguita da main.py)
+- Modelli: DecisionTree, RandomForest, GradientBoosting (XGBoost off).
+- Winner: gradient_boosting, lookback=12, n_estimators=300, lr=0.05, max_depth=3.
+- RMSE test originale: 19894.69 | MAPE: 6.36% | MBE: -7506.21.
+- File chiave: Results/metrics/tavola_1_14_ml_summary_v1.csv, Results/artifacts/tavola_1_14_ml_winner_params_v1.json.
+
+#### Versione v2 (esteso con XGBoost — eseguita da Mains/run_step4_ml_extended.py)
+- Modelli: DecisionTree, RandomForest, GradientBoosting, XGBoost (griglia piu ampia).
+- Winner: random_forest, lookback=12, n_estimators=200, max_depth=None, min_samples_leaf=1.
+- RMSE test originale: 25658.15 | MAPE: 7.79% | MBE: -15827.14.
+- File chiave: Results/metrics/tavola_1_14_ml_summary_xgb_v2.csv, Results/artifacts/tavola_1_14_ml_winner_params_xgb_v2.json.
+
+#### Confronto Step 3 vs Step 4
+| Step | Modello | RMSE test originale |
+|------|---------|---------------------|
+| Step 3 | SARIMA | ~6302 |
+| Step 4 v1 | gradient_boosting | ~19895 |
+| Step 4 v2 | random_forest + XGBoost | ~25658 |
+
+Nota: SARIMA supera nettamente i tree-based su questa serie annuale. Il forecast ricorsivo multi-step accumula errore rapidamente. XGBoost non migliora il risultato rispetto al baseline v1.
+
 ### Vincoli tecnici importanti
 - Niente data leakage: feature selection e fit solo su train nelle fasi corrette.
 - Split temporale rigoroso (no shuffle).
