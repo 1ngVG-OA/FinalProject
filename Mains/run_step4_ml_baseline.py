@@ -1,4 +1,4 @@
-"""Run Step 4 ML extended experiment with a broader grid and XGBoost enabled."""
+"""Run Step 4 ML baseline experiment with the same configuration used by main.py."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from Project.preprocessing import PreprocessingConfig, TimeSeriesPreprocessor, T
 from Project.preprocessing.descriptive_analysis import load_target_series
 
 
-def run_extended_step4() -> None:
+def run_baseline_step4() -> None:
     root = Path(__file__).resolve().parents[1]
     dataset_path = root / "Datasets" / "Tavola_1.14.csv"
 
@@ -36,23 +36,18 @@ def run_extended_step4() -> None:
     preproc_output = preproc.preprocess()
 
     ml_cfg = MLStepConfig(
-        lookback_values=(6, 8, 12),
+        lookback_values=(6, 12),
         feature_selection="importance",
         selected_feature_count=6,
-        use_xgboost=True,
-        dt_max_depth=(3, 5, None),
-        dt_min_samples_leaf=(1, 2, 4),
-        rf_n_estimators=(200, 400),
-        rf_max_depth=(4, 8, None),
-        rf_min_samples_leaf=(1, 2),
-        gbr_n_estimators=(200, 400),
-        gbr_learning_rate=(0.03, 0.05, 0.1),
+        use_xgboost=False,
+        dt_max_depth=(3, None),
+        dt_min_samples_leaf=(1, 2),
+        rf_n_estimators=(200,),
+        rf_max_depth=(6, None),
+        rf_min_samples_leaf=(1,),
+        gbr_n_estimators=(300,),
+        gbr_learning_rate=(0.05,),
         gbr_max_depth=(2, 3),
-        xgb_n_estimators=(300, 600),
-        xgb_learning_rate=(0.03, 0.05),
-        xgb_max_depth=(2, 3),
-        xgb_subsample=(0.8, 1.0),
-        xgb_colsample_bytree=(0.8, 1.0),
     )
 
     runner = MLModelRunner(
@@ -74,12 +69,12 @@ def run_extended_step4() -> None:
     plots_dir.mkdir(parents=True, exist_ok=True)
 
     out_paths = {
-        "grid": metrics_dir / "tavola_1_14_ml_grid_xgb_v2.csv",
-        "summary": metrics_dir / "tavola_1_14_ml_summary_xgb_v2.csv",
-        "forecasts": metrics_dir / "tavola_1_14_ml_forecasts_xgb_v2.csv",
-        "feature_selection": metrics_dir / "tavola_1_14_ml_feature_selection_xgb_v2.csv",
-        "winner": artifacts_dir / "tavola_1_14_ml_winner_params_xgb_v2.json",
-        "config": artifacts_dir / "tavola_1_14_ml_config_xgb_v2.json",
+        "grid": metrics_dir / "tavola_1_14_ml_grid_v1.csv",
+        "summary": metrics_dir / "tavola_1_14_ml_summary_v1.csv",
+        "forecasts": metrics_dir / "tavola_1_14_ml_forecasts_v1.csv",
+        "feature_selection": metrics_dir / "tavola_1_14_ml_feature_selection_v1.csv",
+        "winner": artifacts_dir / "tavola_1_14_ml_winner_params_v1.json",
+        "config": artifacts_dir / "tavola_1_14_ml_config_v1.json",
     }
 
     output["grid"].to_csv(out_paths["grid"], index=False)
@@ -92,7 +87,7 @@ def run_extended_step4() -> None:
 
     plot_paths = save_ml_plots(output, plots_dir)
 
-    print(f"Step 4 extended completed. Winner: {output['winner']}")
+    print(f"Step 4 baseline completed. Winner: {output['winner']}")
     print("Saved outputs:")
     for name, path in out_paths.items():
         print(f"- {name}: {path}")
@@ -101,4 +96,4 @@ def run_extended_step4() -> None:
 
 
 if __name__ == "__main__":
-    run_extended_step4()
+    run_baseline_step4()

@@ -1,4 +1,7 @@
-"""Run Step 4 ML extended experiment with a broader grid and XGBoost enabled."""
+"""Run Step 3 statistical extended experiment with expanded SARIMA hyperparameter grid.
+
+Deeper grid search across p, d, q ranges to explore wider parameter space.
+"""
 
 from __future__ import annotations
 
@@ -11,12 +14,15 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from Project.models.ml import MLModelRunner, MLStepConfig, save_ml_plots
+from Project.models.statistical import StatisticalModelRunner, StatisticalStepConfig
+from Project.models.statistical.model_config import infer_seasonal_period_from_index
 from Project.preprocessing import PreprocessingConfig, TimeSeriesPreprocessor, TransformConfig
 from Project.preprocessing.descriptive_analysis import load_target_series
 
 
-def run_extended_step4() -> None:
+def run_extended_step3() -> None:
+    """Run Step 3 statistical extended (deeper SARIMA grid search)."""
+
     root = Path(__file__).resolve().parents[1]
     dataset_path = root / "Datasets" / "Tavola_1.14.csv"
 
@@ -35,31 +41,23 @@ def run_extended_step4() -> None:
     preproc = TimeSeriesPreprocessor(series, chosen_cfg)
     preproc_output = preproc.preprocess()
 
-    ml_cfg = MLStepConfig(
-        lookback_values=(6, 8, 12),
-        feature_selection="importance",
-        selected_feature_count=6,
-        use_xgboost=True,
-        dt_max_depth=(3, 5, None),
-        dt_min_samples_leaf=(1, 2, 4),
-        rf_n_estimators=(200, 400),
-        rf_max_depth=(4, 8, None),
-        rf_min_samples_leaf=(1, 2),
-        gbr_n_estimators=(200, 400),
-        gbr_learning_rate=(0.03, 0.05, 0.1),
-        gbr_max_depth=(2, 3),
-        xgb_n_estimators=(300, 600),
-        xgb_learning_rate=(0.03, 0.05),
-        xgb_max_depth=(2, 3),
-        xgb_subsample=(0.8, 1.0),
-        xgb_colsample_bytree=(0.8, 1.0),
+    # Extended config: wider grid for p, d, q
+    seasonal_period = infer_seasonal_period_from_index(preproc_output["splits"]["train"].index)
+    stat_cfg = StatisticalStepConfig(
+        p_values=(0, 1, 2, 3, 4),
+        d_values=(0, 1),
+        q_values=(0, 1, 2, 3, 4),
+        p_seasonal_values=(0, 1, 2) if seasonal_period > 1 else (0, 1),
+        d_seasonal_values=(0,),
+        q_seasonal_values=(0, 1, 2) if seasonal_period > 1 else (0, 1),
+        seasonal_period=seasonal_period,
     )
 
-    runner = MLModelRunner(
+    runner = StatisticalModelRunner(
         train=preproc_output["splits"]["train"],
         validation=preproc_output["splits"]["val"],
         test=preproc_output["splits"]["test"],
-        config=ml_cfg,
+        config=stat_cfg,
         original_series=series,
         use_log1p=chosen_cfg.transform.use_log1p,
         diff_order=chosen_cfg.transform.diff_order,
@@ -74,25 +72,25 @@ def run_extended_step4() -> None:
     plots_dir.mkdir(parents=True, exist_ok=True)
 
     out_paths = {
-        "grid": metrics_dir / "tavola_1_14_ml_grid_xgb_v2.csv",
-        "summary": metrics_dir / "tavola_1_14_ml_summary_xgb_v2.csv",
-        "forecasts": metrics_dir / "tavola_1_14_ml_forecasts_xgb_v2.csv",
-        "feature_selection": metrics_dir / "tavola_1_14_ml_feature_selection_xgb_v2.csv",
-        "winner": artifacts_dir / "tavola_1_14_ml_winner_params_xgb_v2.json",
-        "config": artifacts_dir / "tavola_1_14_ml_config_xgb_v2.json",
+        "sarima_grid": metrics_dir / "tavola_1_14_stat_sarima_grid_stat_extended.csv",
+        "hw_grid": metrics_dir / "tavola_1_14_stat_hw_grid_stat_extended.csv",
+        "summary": metrics_dir / "tavola_1_14_stat_summary_stat_extended.csv",
+        "residual_diagnostics": metrics_dir / "tavola_1_14_stat_residual_diagnostics_stat_extended.csv",
+        "forecasts": metrics_dir / "tavola_1_14_stat_forecasts_stat_extended.csv",
+        "winner": artifacts_dir / "tavola_1_14_stat_winner_params_stat_extended.json",
     }
 
-    output["grid"].to_csv(out_paths["grid"], index=False)
+    output["sarima_grid"].to_csv(out_paths["sarima_grid"], index=False)
+    output["hw_grid"].to_csv(out_paths["hw_grid"], index=False)
     output["summary"].to_csv(out_paths["summary"], index=False)
+    output["residual_diagnostics"].to_csv(out_paths["residual_diagnostics"], index=False)
     output["forecast_table"].to_csv(out_paths["forecasts"], index=False)
-    output["feature_selection_report"].to_csv(out_paths["feature_selection"], index=False)
 
     pd.Series(output["winner_params"]).to_json(out_paths["winner"], indent=2)
-    pd.Series(output["config"]).to_json(out_paths["config"], indent=2)
 
-    plot_paths = save_ml_plots(output, plots_dir)
+    plot_paths = StatisticalModelRunner.save_plots(output, plots_dir)
 
-    print(f"Step 4 extended completed. Winner: {output['winner']}")
+    print(f"Step 3 extended completed. Winner: {output['winner']}")
     print("Saved outputs:")
     for name, path in out_paths.items():
         print(f"- {name}: {path}")
@@ -101,4 +99,4 @@ def run_extended_step4() -> None:
 
 
 if __name__ == "__main__":
-    run_extended_step4()
+    run_extended_step3()

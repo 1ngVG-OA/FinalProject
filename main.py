@@ -208,7 +208,8 @@ def main() -> None:
 	for name, file_path in preproc_outputs.items():
 		print(f"- {name}: {file_path}")
 
-	# Step 3 - statistical model (SARIMA) and statistical benchmark (Holt-Winters).
+	# Step 3 - canonical statistical baseline (SARIMA + Holt-Winters).
+	# Standalone Step 3 runners are available in Mains/ for baseline-only and extended experiments.
 	seasonal_period = infer_seasonal_period_from_index(preproc_output["splits"]["train"].index)
 	stat_cfg = StatisticalStepConfig(
 		d_values=(0, 1),
@@ -230,7 +231,8 @@ def main() -> None:
 	for name, file_path in stat_paths.items():
 		print(f"- {name}: {file_path}")
 
-	# Step 4 - non-neural ML models (tree-based + ensemble).
+	# Step 4 - canonical non-neural ML baseline.
+	# Standalone Step 4 runners are available in Mains/ for baseline-only and extended experiments.
 	ml_cfg = MLStepConfig(
 		lookback_values=(6, 12),
 		feature_selection="importance",

@@ -50,24 +50,65 @@ Scelta:
 Interpretazione sintetica:
 Lo split temporale preserva la logica del forecasting reale e permette valutazioni fuori campione robuste.
 
-## Step 4 - Modello statistico
-### Iterazione iniziale
-- mini-grid ARIMA non stagionale con confronto di ordini su validation;
-- refit su train+validation;
-- forecast su test;
-- diagnostica residui (tempo, istogramma, QQ plot, ACF residui).
+## Step 4 - Modelli statistici (SARIMA + Holt-Winters)
+Obiettivo: confrontare due modelli statistici univariati su serie annuale trasformata.
 
-### Confronto coerente con Step 2
-Confronto esplicito tra due famiglie coerenti con stazionarieta osservata:
-- log_d0: ARIMA sulla log-serie con d=0 (poi inversione exp);
-- level_d2: ARIMA in livello con d=2.
+Pipeline implementata:
+- input: serie trasformata log(x) con diff d∈{0,1};
+- grid search SARIMA su validation set con criteri AIC/BIC integrati;
+- refit del modello vincente su train+validation;
+- forecast su test set;
+- metriche in scala trasformata e in scala originale (inversion log1p+diff);
+- diagnostica: residui, Ljung-Box test, plot ACF/PACF.
 
-Selezione:
-- criterio principale: validation RMSE;
-- controllo successivo: metriche su test e residui.
+Modelli confrontati:
+- SARIMA (Auto-Regressive Integrated Moving Average);
+- Holt-Winters (benchmark non-ARIMA).
 
-Nota sui warning statsmodels:
-Il warning su non-invertible starting MA parameters e in genere un warning di inizializzazione. Non invalida da solo il risultato, ma va considerato insieme a convergenza, residui e performance out-of-sample.
+### 4.1 - Run baseline (stat_baseline)
+File principali:
+- Results/metrics/tavola_1_14_stat_sarima_grid_stat_baseline.csv
+- Results/metrics/tavola_1_14_stat_hw_grid_stat_baseline.csv
+- Results/metrics/tavola_1_14_stat_summary_stat_baseline.csv
+- Results/artifacts/tavola_1_14_stat_winner_params_stat_baseline.json
+
+Configurazione:
+- p_values: (0, 1, 2);
+- d_values: (0, 1);
+- q_values: (0, 1, 2);
+- p_seasonal, q_seasonal: (0, 1);
+- seasonal_period: inferito da split temporale.
+
+Esito sintetico:
+- winner: sarima;
+- best_p,d,q: TBD (da grid search);
+- test RMSE in scala originale: circa 30272.80 GWh.
+- plot: forecast_comparison, forecast_original_scale.
+
+### 4.2 - Run esteso (stat_extended)
+Configurazione estesa:
+- p_values: (0, 1, 2, 3, 4);
+- d_values: (0, 1);
+- q_values: (0, 1, 2, 3, 4);
+- p_seasonal, q_seasonal: (0, 1, 2) se seasonal_period > 1;
+- griglia ~5x più densa per esplorazione parametrica approfondita.
+
+File principali:
+- Results/metrics/tavola_1_14_stat_sarima_grid_stat_extended.csv
+- Results/metrics/tavola_1_14_stat_summary_stat_extended.csv
+- Results/artifacts/tavola_1_14_stat_winner_params_stat_extended.json
+
+Esito sintetico:
+- winner: sarima;
+- test RMSE in scala originale: circa 30272.80 GWh (identico a baseline);
+- interpretazione: griglia estesa non migliora, confirma stabilita della soluzione baseline.
+
+### 4.3 - Confronto baseline vs extended
+File di confronto:
+- Results/metrics/tavola_1_14_stat_comparison_baseline_vs_extended.csv
+
+Risultato:
+La griglia estesa produce gli stessi parametri ottimali del baseline. Non c è vantaggio di esplorazione ulteriore — il parametro minimo si trova già nella griglia compatta baseline. Questo suggerisce che lo step della validazione è robusto e il rischio di overfitting locale è basso.
 
 ## Step 5 - Modelli Machine Learning non-neurali (tree-based)
 Obiettivo: confrontare modelli ML non-neurali su serie trasformata usando lag supervisionati e forecast multi-step ricorsivo.
@@ -123,14 +164,16 @@ Confronto su test RMSE in scala originale (piu basso e migliore):
 Interpretazione:
 In questa serie annuale e con questa trasformazione, i modelli statistici restano nettamente piu stabili e accurati in scala originale rispetto ai tree-based non-neurali. L'estensione con XGBoost aumenta la copertura dello spazio iperparametri, ma non migliora il risultato finale sul test rispetto al baseline ML v1.
 
-## Stato operativo del notebook
-Il notebook e stato rifattorizzato come raccoglitore operativo.
-- Logica esternalizzata nei moduli Python in Mains/notebook_steps.
+## Stato operativo del progetto
+Il notebook è stato rifattorizzato come raccoglitore operativo.
+- Logica esternalizzata nei moduli Python in Mains/.
 - Notebook usato come orchestratore step-by-step e visualizzatore risultati.
+- Main.py serve come pipeline canonica (baseline per ogni step).
 
-Moduli usati:
-- Mains/notebook_steps/step1_dataset.py
-- Mains/notebook_steps/step2_preprocessing.py
-- Mains/notebook_steps/step3_split.py
-- Mains/notebook_steps/step4_statistical.py
-- Mains/run_step4_ml_extended.py
+Runner autonomi per sperimentazione:
+- Mains/run_step3_stat_baseline.py: Step 4 statistico baseline (config identica al main.py);
+- Mains/run_step3_stat_extended.py: Step 4 statistico extended (griglia SARIMA più densa);
+- Mains/run_step3_stat_compare.py: confronto baseline vs extended;
+- Mains/run_step4_ml_baseline.py: Step 5 ML baseline (no XGBoost);
+- Mains/run_step4_ml_extended.py: Step 5 ML extended (XGBoost on);
+- Mains/run_step4_ml_compare.py: confronto cross-step e per Step 5.
