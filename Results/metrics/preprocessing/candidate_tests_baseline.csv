@@ -1,0 +1,5 @@
+use_log1p,power_exponent,diff_order,scale_method,adf_pvalue_train,kpss_pvalue_train,adf_stationary_train,kpss_stationary_train
+False,,0,none,1.0,0.01,False,False
+False,,1,none,0.9692540936200874,0.01,False,False
+True,,1,none,0.5285964351539963,0.01,False,False
+True,,2,none,6.055980523315706e-18,0.1,True,True

@@ -68,32 +68,37 @@ def original_scale_metrics_for_segment(
 ) -> dict[str, float] | None:
     """Compute metrics in original scale for a predicted segment.
 
-    Works when transformed target is either diff1(log1p(y)) or diff2(log1p(y)).
+    Handles transformations: log1p only (diff_order=0), diff1(log1p),
+    diff2(log1p).
     """
-    if original_series is None or not use_log1p or diff_order not in (1, 2):
+    if original_series is None or not use_log1p or diff_order not in (0, 1, 2):
         return None
 
     raw = pd.to_numeric(original_series, errors="coerce").dropna().astype(float)
     if raw.empty or pred_segment.empty:
         return None
 
-    x_log = np.log1p(raw)
-    seg_start = pred_segment.index.min()
-
-    if diff_order == 1:
-        try:
-            seed_log = float(x_log[x_log.index < seg_start].iloc[-1])
-        except Exception:
-            return None
-        pred_orig = np.expm1(seed_log + pred_segment.cumsum())
+    if diff_order == 0:
+        # Only log1p applied — direct inversion
+        pred_orig = np.expm1(pred_segment)
     else:
-        x_d1 = x_log.diff().dropna()
-        try:
-            seed_d1 = float(x_d1[x_d1.index < seg_start].iloc[-1])
-            seed_log = float(x_log[x_log.index < seg_start].iloc[-1])
-        except Exception:
-            return None
-        pred_orig = invert_diff2_log1p(pred_segment, seed_d1, seed_log)
+        x_log = np.log1p(raw)
+        seg_start = pred_segment.index.min()
+
+        if diff_order == 1:
+            try:
+                seed_log = float(x_log[x_log.index < seg_start].iloc[-1])
+            except Exception:
+                return None
+            pred_orig = np.expm1(seed_log + pred_segment.cumsum())
+        else:
+            x_d1 = x_log.diff().dropna()
+            try:
+                seed_d1 = float(x_d1[x_d1.index < seg_start].iloc[-1])
+                seed_log = float(x_log[x_log.index < seg_start].iloc[-1])
+            except Exception:
+                return None
+            pred_orig = invert_diff2_log1p(pred_segment, seed_d1, seed_log)
 
     true_orig = raw.reindex(pred_orig.index)
     return compute_metrics_aligned(true_orig, pred_orig)

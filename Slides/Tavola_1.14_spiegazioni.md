@@ -67,10 +67,10 @@ Modelli confrontati:
 
 ### 4.1 - Run baseline (stat_baseline)
 File principali:
-- Results/metrics/tavola_1_14_stat_sarima_grid_stat_baseline.csv
-- Results/metrics/tavola_1_14_stat_hw_grid_stat_baseline.csv
-- Results/metrics/tavola_1_14_stat_summary_stat_baseline.csv
-- Results/artifacts/tavola_1_14_stat_winner_params_stat_baseline.json
+- Results/metrics/statistical/sarima_grid_baseline.csv
+- Results/metrics/statistical/hw_grid_baseline.csv
+- Results/metrics/statistical/summary_baseline.csv
+- Results/artifacts/statistical/winner_params_baseline.json
 
 Configurazione:
 - p_values: (0, 1, 2);
@@ -94,9 +94,9 @@ Configurazione estesa:
 - griglia ~5x più densa per esplorazione parametrica approfondita.
 
 File principali:
-- Results/metrics/tavola_1_14_stat_sarima_grid_stat_extended.csv
-- Results/metrics/tavola_1_14_stat_summary_stat_extended.csv
-- Results/artifacts/tavola_1_14_stat_winner_params_stat_extended.json
+- Results/metrics/statistical/sarima_grid_extended.csv
+- Results/metrics/statistical/summary_extended.csv
+- Results/artifacts/statistical/winner_params_extended.json
 
 Esito sintetico:
 - winner: sarima;
@@ -129,9 +129,9 @@ Modelli confrontati:
 
 ### 5.1 - Run baseline (v1)
 File principali:
-- Results/metrics/tavola_1_14_ml_summary_v1.csv
-- Results/metrics/tavola_1_14_ml_grid_v1.csv
-- Results/artifacts/tavola_1_14_ml_winner_params_v1.json
+- Results/metrics/ml/summary_baseline.csv
+- Results/metrics/ml/grid_baseline.csv
+- Results/artifacts/ml/winner_params_baseline.json
 
 Esito sintetico:
 - winner: gradient_boosting;
@@ -145,9 +145,9 @@ Configurazione estesa usata:
 - stesso schema di validazione temporale e stesso preprocessing del baseline.
 
 File principali:
-- Results/metrics/tavola_1_14_ml_summary_xgb_v2.csv
-- Results/metrics/tavola_1_14_ml_grid_xgb_v2.csv
-- Results/artifacts/tavola_1_14_ml_winner_params_xgb_v2.json
+- Results/metrics/ml/summary_extended.csv
+- Results/metrics/ml/grid_extended.csv
+- Results/artifacts/ml/winner_params_extended.json
 
 Esito sintetico:
 - winner: random_forest;
@@ -166,14 +166,14 @@ In questa serie annuale e con questa trasformazione, i modelli statistici restan
 
 ## Stato operativo del progetto
 Il notebook è stato rifattorizzato come raccoglitore operativo.
-- Logica esternalizzata nei moduli Python in Mains/.
+- Logica esternalizzata nei moduli Python nel package `Project/`.
 - Notebook usato come orchestratore step-by-step e visualizzatore risultati.
 - Main.py serve come pipeline canonica (baseline per ogni step).
 
 Runner autonomi per sperimentazione:
-- Mains/run_step3_stat_baseline.py: Step 4 statistico baseline (config identica al main.py);
-- Mains/run_step3_stat_extended.py: Step 4 statistico extended (griglia SARIMA più densa);
-- Mains/run_step3_stat_compare.py: confronto baseline vs extended;
-- Mains/run_step4_ml_baseline.py: Step 5 ML baseline (no XGBoost);
-- Mains/run_step4_ml_extended.py: Step 5 ML extended (XGBoost on);
-- Mains/run_step4_ml_compare.py: confronto cross-step e per Step 5.
+- Project/models/statistical/runners/run_baseline.py: Step 3 statistico baseline (config identica al main.py);
+- Project/models/statistical/runners/run_extended.py: Step 3 statistico extended (griglia SARIMA più densa);
+- Project/models/statistical/runners/run_compare.py: confronto baseline vs extended;
+- Project/models/ml/runners/run_baseline.py: Step 4 ML baseline (no XGBoost);
+- Project/models/ml/runners/run_extended.py: Step 4 ML extended (XGBoost on);
+- Project/models/ml/runners/run_compare.py: confronto cross-step e per Step 4.

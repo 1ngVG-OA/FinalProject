@@ -171,6 +171,6 @@ class StatisticalModelRunner:
         }
 
     @staticmethod
-    def save_plots(output: dict[str, Any], out_dir: Path) -> dict[str, Path]:
+    def save_plots(output: dict[str, Any], out_dir: Path, suffix: str | None = None) -> dict[str, Path]:
         """Save Step 3 plots via the dedicated plotting module."""
-        return save_statistical_plots(output, out_dir)
+        return save_statistical_plots(output, out_dir, suffix=suffix)

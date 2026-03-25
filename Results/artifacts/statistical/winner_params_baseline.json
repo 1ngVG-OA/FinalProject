@@ -1,0 +1,23 @@
+{
+  "model":"sarima",
+  "best_params":"{'order': (0, 0, 0), 'seasonal_order': (0, 0, 0, 0)}",
+  "rmse_val":0.0404978504,
+  "mae_val":0.0296487776,
+  "mape_val":100.0,
+  "mbe_val":0.002020921,
+  "abs_mbe_val":0.002020921,
+  "rmse_val_orig":6933.84960213,
+  "mae_val_orig":5414.2450262626,
+  "mape_val_orig":2.9741502854,
+  "mbe_val_orig":-2281.9979185711,
+  "abs_mbe_val_orig":2281.9979185711,
+  "rmse_test":0.041527663,
+  "mae_test":0.0276552789,
+  "mape_test":100.0,
+  "mbe_test":0.0009816814,
+  "abs_mbe_test":0.0009816814,
+  "aic":-166.6680147472,
+  "aicc":-166.6306315696,
+  "_rank_rmse_val":6933.84960213,
+  "_rank_mae_val":5414.2450262626
+}

@@ -342,10 +342,10 @@ class TimeSeriesPreprocessor:
         outliers = preproc_output["local_outliers"]
 
         plot_paths = {
-            "preproc_plot_raw_vs_transformed": out_dir / "tavola_1_14_preproc_raw_vs_transformed_v1.png",
-            "preproc_plot_split_view": out_dir / "tavola_1_14_preproc_split_view_v1.png",
-            "preproc_plot_acf_pacf": out_dir / "tavola_1_14_preproc_acf_pacf_v1.png",
-            "preproc_plot_local_outliers": out_dir / "tavola_1_14_preproc_local_outliers_v1.png",
+            "preproc_plot_raw_vs_transformed": out_dir / "raw_vs_transformed.png",
+            "preproc_plot_split_view": out_dir / "split_view.png",
+            "preproc_plot_acf_pacf": out_dir / "acf_pacf.png",
+            "preproc_plot_local_outliers": out_dir / "local_outliers.png",
         }
 
         # 1) Raw vs transformed series.

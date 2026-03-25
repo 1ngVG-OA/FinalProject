@@ -12,10 +12,9 @@ from pathlib import Path
 import pandas as pd
 
 from Project.preprocessing import (
-	DEFAULT_PREPROCESSING_CANDIDATES,
 	PreprocessingConfig,
 	TimeSeriesPreprocessor,
-	prepare_preprocessing_from_candidates,
+	prepare_preprocessing_for_profile,
 	save_selected_preprocessing_config,
 )
 from Project.models.statistical import (
@@ -47,9 +46,9 @@ def _save_preprocessing_outputs(
 ) -> dict[str, Path]:
 	"""Persist preprocessing artifacts to metrics and processed data folders."""
 
-	metrics_dir = root / "Results" / "metrics"
+	metrics_dir = root / "Results" / "metrics" / "preprocessing"
 	processed_dir = root / "Datasets" / "processed"
-	artifacts_dir = root / "Results" / "artifacts"
+	artifacts_dir = root / "Results" / "artifacts" / "preprocessing"
 	preproc_plots_dir = root / "Results" / "plots" / "preprocessing"
 
 	metrics_dir.mkdir(parents=True, exist_ok=True)
@@ -77,11 +76,11 @@ def _save_preprocessing_outputs(
 	tests_df = pd.DataFrame(tests_rows)
 
 	output_paths = {
-		"preproc_split_summary": metrics_dir / "tavola_1_14_preproc_split_summary_v1.csv",
-		"preproc_tests": metrics_dir / "tavola_1_14_preproc_tests_v1.csv",
-		"preproc_local_outliers": metrics_dir / "tavola_1_14_preproc_local_outliers_v1.csv",
-		"preproc_candidate_tests": metrics_dir / "tavola_1_14_preproc_candidate_tests_v1.csv",
-		"preproc_selected_config": artifacts_dir / "tavola_1_14_preproc_selected_config_v1.json",
+		"preproc_split_summary": metrics_dir / "split_summary.csv",
+		"preproc_tests": metrics_dir / "tests.csv",
+		"preproc_local_outliers": metrics_dir / "local_outliers.csv",
+		"preproc_candidate_tests": metrics_dir / "candidate_tests.csv",
+		"preproc_selected_config": artifacts_dir / "selected_config.json",
 		"preproc_train": processed_dir / "tavola_1_14_preprocessed_train_v1.csv",
 		"preproc_val": processed_dir / "tavola_1_14_preprocessed_val_v1.csv",
 		"preproc_test": processed_dir / "tavola_1_14_preprocessed_test_v1.csv",
@@ -106,21 +105,21 @@ def _save_preprocessing_outputs(
 def _save_statistical_outputs(root: Path, stat_output: dict) -> dict[str, Path]:
 	"""Persist Step 3 statistical artifacts to metrics/plots/artifacts folders."""
 
-	metrics_dir = root / "Results" / "metrics"
-	plots_dir = root / "Results" / "plots" / "forecasting"
-	artifacts_dir = root / "Results" / "artifacts"
+	metrics_dir = root / "Results" / "metrics" / "statistical"
+	plots_dir = root / "Results" / "plots" / "statistical"
+	artifacts_dir = root / "Results" / "artifacts" / "statistical"
 
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 	plots_dir.mkdir(parents=True, exist_ok=True)
 	artifacts_dir.mkdir(parents=True, exist_ok=True)
 
 	output_paths = {
-		"stat_sarima_grid": metrics_dir / "tavola_1_14_stat_sarima_grid_v1.csv",
-		"stat_hw_grid": metrics_dir / "tavola_1_14_stat_hw_grid_v1.csv",
-		"stat_summary": metrics_dir / "tavola_1_14_stat_summary_v1.csv",
-		"stat_residual_diagnostics": metrics_dir / "tavola_1_14_stat_residual_diagnostics_v1.csv",
-		"stat_forecasts": metrics_dir / "tavola_1_14_stat_forecasts_v1.csv",
-		"stat_winner_params": artifacts_dir / "tavola_1_14_stat_winner_params_v1.json",
+		"stat_sarima_grid": metrics_dir / "sarima_grid.csv",
+		"stat_hw_grid": metrics_dir / "hw_grid.csv",
+		"stat_summary": metrics_dir / "summary.csv",
+		"stat_residual_diagnostics": metrics_dir / "residual_diagnostics.csv",
+		"stat_forecasts": metrics_dir / "forecasts.csv",
+		"stat_winner_params": artifacts_dir / "winner_params.json",
 	}
 
 	stat_output["sarima_grid"].to_csv(output_paths["stat_sarima_grid"], index=False)
@@ -140,21 +139,21 @@ def _save_statistical_outputs(root: Path, stat_output: dict) -> dict[str, Path]:
 def _save_ml_outputs(root: Path, ml_output: dict) -> dict[str, Path]:
 	"""Persist Step 4 ML artifacts to metrics/plots/artifacts folders."""
 
-	metrics_dir = root / "Results" / "metrics"
-	plots_dir = root / "Results" / "plots" / "forecasting"
-	artifacts_dir = root / "Results" / "artifacts"
+	metrics_dir = root / "Results" / "metrics" / "ml"
+	plots_dir = root / "Results" / "plots" / "ml"
+	artifacts_dir = root / "Results" / "artifacts" / "ml"
 
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 	plots_dir.mkdir(parents=True, exist_ok=True)
 	artifacts_dir.mkdir(parents=True, exist_ok=True)
 
 	output_paths = {
-		"ml_grid": metrics_dir / "tavola_1_14_ml_grid_v1.csv",
-		"ml_summary": metrics_dir / "tavola_1_14_ml_summary_v1.csv",
-		"ml_forecasts": metrics_dir / "tavola_1_14_ml_forecasts_v1.csv",
-		"ml_feature_selection": metrics_dir / "tavola_1_14_ml_feature_selection_v1.csv",
-		"ml_winner_params": artifacts_dir / "tavola_1_14_ml_winner_params_v1.json",
-		"ml_config": artifacts_dir / "tavola_1_14_ml_config_v1.json",
+		"ml_grid": metrics_dir / "grid.csv",
+		"ml_summary": metrics_dir / "summary.csv",
+		"ml_forecasts": metrics_dir / "forecasts.csv",
+		"ml_feature_selection": metrics_dir / "feature_selection.csv",
+		"ml_winner_params": artifacts_dir / "winner_params.json",
+		"ml_config": artifacts_dir / "config.json",
 	}
 
 	ml_output["grid"].to_csv(output_paths["ml_grid"], index=False)
@@ -180,7 +179,7 @@ def main() -> None:
 	# Step 1 - descriptive analysis.
 	desc_paths = DescriptivePaths(
 		dataset_path=dataset_path,
-		results_metrics_dir=root / "Results" / "metrics",
+		results_metrics_dir=root / "Results" / "metrics" / "descriptive",
 		results_plots_dir=root / "Results" / "plots" / "descriptive",
 	)
 	descriptive_outputs = run_descriptive_analysis(desc_paths, target=TARGET_SERIES_KEY)
@@ -192,10 +191,10 @@ def main() -> None:
 	# Step 2 - preprocessing based on descriptive conclusions.
 	series = load_target_series(dataset_path, target=TARGET_SERIES_KEY)
 
-	preproc, preproc_output, candidate_df, selected_cfg = prepare_preprocessing_from_candidates(
+	preproc, preproc_output, candidate_df, selected_cfg = prepare_preprocessing_for_profile(
 		series=series,
+		profile="statistical",
 		base_config=PreprocessingConfig(run_shapiro=True),
-		candidate_cfgs=DEFAULT_PREPROCESSING_CANDIDATES,
 	)
 
 	preproc_outputs = _save_preprocessing_outputs(
@@ -211,7 +210,7 @@ def main() -> None:
 		print(f"- {name}: {file_path}")
 
 	# Step 3 - canonical statistical baseline (SARIMA + Holt-Winters).
-	# Standalone Step 3 runners are available in Mains/ for baseline-only and extended experiments.
+	# Standalone Step 3 runners are available in Project/models/statistical/runners/.
 	seasonal_period = infer_seasonal_period_from_index(preproc_output["splits"]["train"].index)
 	stat_cfg = StatisticalStepConfig(
 		d_values=(0, 1),
@@ -234,7 +233,7 @@ def main() -> None:
 		print(f"- {name}: {file_path}")
 
 	# Step 4 - canonical non-neural ML baseline.
-	# Standalone Step 4 runners are available in Mains/ for baseline-only and extended experiments.
+	# Standalone Step 4 runners are available in Project/models/ml/runners/.
 	ml_cfg = MLStepConfig(
 		lookback_values=(6, 12),
 		feature_selection="importance",

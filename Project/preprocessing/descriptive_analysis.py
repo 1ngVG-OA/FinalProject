@@ -390,7 +390,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     ax.set_ylabel("Value")
     ax.grid(alpha=0.25)
     fig.tight_layout()
-    fig.savefig(out_dir / "tavola_1_14_series_base_v1.png", dpi=150)
+    fig.savefig(out_dir / "series_base.png", dpi=150)
     plt.close(fig)
 
     # 1) Frequency distribution bar chart (empirical absolute + relative).
@@ -411,7 +411,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     ax1.legend([bars], ["Absolute"], loc="upper left")
     ax2.legend(loc="upper right")
     fig.tight_layout()
-    fig.savefig(out_dir / "tavola_1_14_frequency_distribution_v1.png", dpi=150)
+    fig.savefig(out_dir / "frequency_distribution.png", dpi=150)
     plt.close(fig)
 
     # 2) Histogram + KDE + fitted normal and uniform densities.
@@ -433,7 +433,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     ax.set_ylabel("Density")
     ax.legend()
     fig.tight_layout()
-    fig.savefig(out_dir / "tavola_1_14_density_comparison_v1.png", dpi=150)
+    fig.savefig(out_dir / "density_comparison.png", dpi=150)
     plt.close(fig)
 
     # 3) Discrete empirical distribution (top 30 frequencies to keep readability).
@@ -445,7 +445,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     ax.set_ylabel("Relative frequency")
     ax.tick_params(axis="x", rotation=80)
     fig.tight_layout()
-    fig.savefig(out_dir / "tavola_1_14_discrete_distribution_v1.png", dpi=150)
+    fig.savefig(out_dir / "discrete_distribution.png", dpi=150)
     plt.close(fig)
 
     # 4) Boxplot + Q-Q plot for outlier/normality inspection.
@@ -458,7 +458,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     axes[1].set_title("Q-Q Plot (Normal)")
 
     fig.tight_layout()
-    fig.savefig(out_dir / "tavola_1_14_outliers_qqplot_v1.png", dpi=150)
+    fig.savefig(out_dir / "outliers_qqplot.png", dpi=150)
     plt.close(fig)
 
     # 4b) Standalone global outlier boxplot (levels) for direct comparison.
@@ -467,7 +467,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     ax.set_title("Global Outliers - Boxplot on Levels")
     ax.set_ylabel("Value")
     fig.tight_layout()
-    fig.savefig(out_dir / "tavola_1_14_global_outliers_boxplot_v1.png", dpi=150)
+    fig.savefig(out_dir / "global_outliers_boxplot.png", dpi=150)
     plt.close(fig)
 
     # 5) Trend validation plot: observed series + linear trend fit.
@@ -485,7 +485,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     ax.grid(alpha=0.25)
     ax.legend()
     fig.tight_layout()
-    fig.savefig(out_dir / "tavola_1_14_trend_validation_v1.png", dpi=150)
+    fig.savefig(out_dir / "trend_validation.png", dpi=150)
     plt.close(fig)
 
     # 6) Local anomaly plot on year-over-year changes.
@@ -525,7 +525,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     ax.grid(alpha=0.25)
     ax.legend()
     fig.tight_layout()
-    fig.savefig(out_dir / "tavola_1_14_local_outliers_yoy_v1.png", dpi=150)
+    fig.savefig(out_dir / "local_outliers_yoy.png", dpi=150)
     plt.close(fig)
 
     # 6b) Local outlier boxplot on YoY changes for same-typology comparison.
@@ -534,7 +534,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     ax.set_title("Local Outliers - Boxplot on YoY Changes")
     ax.set_ylabel("YoY change")
     fig.tight_layout()
-    fig.savefig(out_dir / "tavola_1_14_local_outliers_boxplot_v1.png", dpi=150)
+    fig.savefig(out_dir / "local_outliers_boxplot.png", dpi=150)
     plt.close(fig)
 
 
@@ -566,16 +566,16 @@ def run_descriptive_analysis(
 
     # Save tabular outputs.
     output_paths = {
-        "series": paths.results_metrics_dir / "tavola_1_14_series_clean_v1.csv",
-        "frequency": paths.results_metrics_dir / "tavola_1_14_frequency_distribution_v1.csv",
-        "central_tendency": paths.results_metrics_dir / "tavola_1_14_central_tendency_v1.csv",
-        "dispersion": paths.results_metrics_dir / "tavola_1_14_dispersion_measures_v1.csv",
-        "outliers": paths.results_metrics_dir / "tavola_1_14_outliers_iqr_v1.csv",
-        "outlier_summary": paths.results_metrics_dir / "tavola_1_14_outliers_summary_v1.csv",
-        "trend_summary": paths.results_metrics_dir / "tavola_1_14_trend_summary_v1.csv",
-        "yoy_variation": paths.results_metrics_dir / "tavola_1_14_yoy_variation_details_v1.csv",
-        "local_outliers": paths.results_metrics_dir / "tavola_1_14_local_outliers_yoy_v1.csv",
-        "local_outlier_summary": paths.results_metrics_dir / "tavola_1_14_local_outliers_summary_v1.csv",
+        "series": paths.results_metrics_dir / "series_clean.csv",
+        "frequency": paths.results_metrics_dir / "frequency_distribution.csv",
+        "central_tendency": paths.results_metrics_dir / "central_tendency.csv",
+        "dispersion": paths.results_metrics_dir / "dispersion_measures.csv",
+        "outliers": paths.results_metrics_dir / "outliers_iqr.csv",
+        "outlier_summary": paths.results_metrics_dir / "outliers_summary.csv",
+        "trend_summary": paths.results_metrics_dir / "trend_summary.csv",
+        "yoy_variation": paths.results_metrics_dir / "yoy_variation_details.csv",
+        "local_outliers": paths.results_metrics_dir / "local_outliers_yoy.csv",
+        "local_outlier_summary": paths.results_metrics_dir / "local_outliers_summary.csv",
     }
 
     series.reset_index().to_csv(output_paths["series"], index=False)

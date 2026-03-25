@@ -14,14 +14,20 @@ import pandas as pd
 from .model_config import invert_diff2_log1p
 
 
-def save_ml_plots(output: dict[str, Any], out_dir: Path) -> dict[str, Path]:
+def _suffix_name(base_name: str, suffix: str | None) -> str:
+    if not suffix:
+        return base_name
+    return f"{base_name}_{suffix}"
+
+
+def save_ml_plots(output: dict[str, Any], out_dir: Path, suffix: str | None = None) -> dict[str, Path]:
     """Save transformed-scale and original-scale comparison plots for Step 4."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     paths = {
-        "ml_plot_forecasts": out_dir / "tavola_1_14_ml_forecast_comparison_v1.png",
-        "ml_plot_forecasts_original_scale": out_dir / "tavola_1_14_ml_forecast_original_scale_v1.png",
+        "ml_plot_forecasts": out_dir / f"{_suffix_name('forecast_comparison', suffix)}.png",
+        "ml_plot_forecasts_original_scale": out_dir / f"{_suffix_name('forecast_original_scale', suffix)}.png",
     }
 
     summary = output["summary"]
@@ -64,7 +70,7 @@ def save_ml_plots(output: dict[str, Any], out_dir: Path) -> dict[str, Path]:
         isinstance(original_series, pd.Series)
         and not original_series.empty
         and use_log1p
-        and diff_order in (1, 2)
+        and diff_order in (0, 1, 2)
     ):
         raw = pd.to_numeric(original_series, errors="coerce").dropna().astype(float)
         x_log = np.log1p(raw)
@@ -73,6 +79,8 @@ def save_ml_plots(output: dict[str, Any], out_dir: Path) -> dict[str, Path]:
         test_start = int(test_actual.index.min())
 
         def invert_segment(pred: pd.Series, segment: str) -> pd.Series:
+            if diff_order == 0:
+                return np.expm1(pred)
             if diff_order == 1:
                 start = val_start if segment == "val" else test_start
                 seed_log = float(x_log[x_log.index < start].iloc[-1])

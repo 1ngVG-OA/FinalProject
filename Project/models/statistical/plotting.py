@@ -15,16 +15,22 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from .model_config import invert_diff2_log1p
 
 
-def save_statistical_plots(output: dict[str, Any], out_dir: Path) -> dict[str, Path]:
+def save_statistical_plots(
+    output: dict[str, Any],
+    out_dir: Path,
+    suffix: str | None = None,
+) -> dict[str, Path]:
     """Save comparison and residual diagnostic plots for Step 3."""
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    name_suffix = f"_{suffix}" if suffix else ""
+
     paths = {
-        "stat_plot_forecasts": out_dir / "tavola_1_14_stat_forecast_comparison_v1.png",
-        "stat_plot_residuals": out_dir / "tavola_1_14_stat_residuals_diagnostics_v1.png",
-        "stat_plot_forecasts_original_scale": out_dir / "tavola_1_14_stat_forecast_original_scale_v1.png",
+        "stat_plot_forecasts": out_dir / f"forecast_comparison{name_suffix}.png",
+        "stat_plot_residuals": out_dir / f"residuals_diagnostics{name_suffix}.png",
+        "stat_plot_forecasts_original_scale": out_dir / f"forecast_original_scale{name_suffix}.png",
     }
 
     val_idx = output["validation_actual"].index
