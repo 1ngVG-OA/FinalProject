@@ -365,9 +365,11 @@ class MLModelRunner:
             feature_reports.append(rep)
 
         summary_df = pd.DataFrame(summary_rows)
+        summary_df = summary_df.assign(rank_rmse_val=summary_df["rmse_val_orig"].fillna(summary_df["rmse_val"]))
+        summary_df = summary_df.assign(rank_abs_mbe_val=summary_df["abs_mbe_val_orig"].fillna(summary_df["abs_mbe_val"]))
         summary_df = summary_df.assign(rank_rmse_test=summary_df["rmse_test_orig"].fillna(summary_df["rmse_test"]))
         summary_df = summary_df.assign(rank_abs_mbe_test=summary_df["abs_mbe_test_orig"].fillna(summary_df["abs_mbe_test"]))
-        summary_df = summary_df.sort_values(["rank_rmse_test", "rank_abs_mbe_test"], ascending=[True, True]).reset_index(drop=True)
+        summary_df = summary_df.sort_values(["rank_rmse_val", "rank_abs_mbe_val"], ascending=[True, True]).reset_index(drop=True)
 
         winner_row = summary_df.iloc[0]
         winner = str(winner_row["model"])

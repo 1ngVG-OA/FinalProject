@@ -11,6 +11,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from Project.evaluation import (
+	build_cross_family_comparison,
+	build_diebold_mariano_table,
+	build_prescriptive_table,
+)
 from Project.preprocessing import (
 	PreprocessingConfig,
 	TimeSeriesPreprocessor,
@@ -207,6 +212,58 @@ def _save_neural_outputs(root: Path, neural_output: dict) -> dict[str, Path]:
 	return output_paths
 
 
+def _save_comparison_outputs(root: Path, comparison_output: dict) -> dict[str, Path]:
+	"""Persist cross-family comparison artifacts."""
+
+	metrics_dir = root / "Results" / "metrics" / "comparison"
+	artifacts_dir = root / "Results" / "artifacts" / "comparison"
+
+	metrics_dir.mkdir(parents=True, exist_ok=True)
+	artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+	output_paths = {
+		"comparison_all_models": metrics_dir / "all_models.csv",
+		"comparison_family_winners": metrics_dir / "family_winners.csv",
+		"comparison_winner_forecasts": metrics_dir / "winner_forecasts.csv",
+		"comparison_global_winner": artifacts_dir / "global_winner.json",
+	}
+
+	comparison_output["all_models"].to_csv(output_paths["comparison_all_models"], index=False)
+	comparison_output["family_winners"].to_csv(output_paths["comparison_family_winners"], index=False)
+	comparison_output["winner_forecasts"].to_csv(output_paths["comparison_winner_forecasts"], index=False)
+	pd.Series(comparison_output["global_winner"]).to_json(output_paths["comparison_global_winner"], indent=2)
+
+	return output_paths
+
+
+def _save_inferential_outputs(root: Path, inferential_df: pd.DataFrame) -> dict[str, Path]:
+	"""Persist inferential comparison artifacts."""
+
+	metrics_dir = root / "Results" / "metrics" / "inferential"
+	metrics_dir.mkdir(parents=True, exist_ok=True)
+
+	output_paths = {
+		"inferential_diebold_mariano": metrics_dir / "diebold_mariano.csv",
+	}
+
+	inferential_df.to_csv(output_paths["inferential_diebold_mariano"], index=False)
+	return output_paths
+
+
+def _save_prescriptive_outputs(root: Path, prescriptive_df: pd.DataFrame) -> dict[str, Path]:
+	"""Persist prescriptive analytics artifacts."""
+
+	metrics_dir = root / "Results" / "metrics" / "prescriptive"
+	metrics_dir.mkdir(parents=True, exist_ok=True)
+
+	output_paths = {
+		"prescriptive_scenarios": metrics_dir / "scenarios.csv",
+	}
+
+	prescriptive_df.to_csv(output_paths["prescriptive_scenarios"], index=False)
+	return output_paths
+
+
 def main() -> None:
 	"""Run the currently implemented pipeline steps end-to-end."""
 
@@ -322,6 +379,31 @@ def main() -> None:
 
 	print(f"Step 5 Neural completed. Winner: {neural_output['winner']}")
 	for name, file_path in neural_paths.items():
+		print(f"- {name}: {file_path}")
+
+	comparison_output = build_cross_family_comparison(stat_output, ml_output, neural_output)
+	comparison_paths = _save_comparison_outputs(root, comparison_output)
+
+	print(f"Cross-family comparison completed. Global winner: {comparison_output['global_winner']['family']}::{comparison_output['global_winner']['model']}")
+	for name, file_path in comparison_paths.items():
+		print(f"- {name}: {file_path}")
+
+	inferential_df = build_diebold_mariano_table(comparison_output["winner_forecasts"])
+	inferential_paths = _save_inferential_outputs(root, inferential_df)
+
+	print("Inferential statistics completed.")
+	for name, file_path in inferential_paths.items():
+		print(f"- {name}: {file_path}")
+
+	prescriptive_df = build_prescriptive_table(
+		comparison_output["family_winners"],
+		comparison_output["winner_forecasts"],
+		series,
+	)
+	prescriptive_paths = _save_prescriptive_outputs(root, prescriptive_df)
+
+	print("Prescriptive analytics completed.")
+	for name, file_path in prescriptive_paths.items():
 		print(f"- {name}: {file_path}")
 
 

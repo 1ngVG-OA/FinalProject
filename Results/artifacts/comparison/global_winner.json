@@ -1,0 +1,7 @@
+{
+  "family":"ml",
+  "model":"decision_tree",
+  "global_rank":1,
+  "rank_rmse_val_global":0.0000000001,
+  "rank_abs_mbe_val_global":0.0
+}
