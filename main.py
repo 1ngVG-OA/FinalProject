@@ -27,6 +27,11 @@ from Project.models.ml import (
 	MLStepConfig,
 	save_ml_plots,
 )
+from Project.models.neural import (
+	NeuralModelRunner,
+	build_compact_neural_config,
+	save_neural_plots,
+)
 from Project.preprocessing.descriptive_analysis import (
 	DescriptivePaths,
 	load_target_series,
@@ -170,6 +175,38 @@ def _save_ml_outputs(root: Path, ml_output: dict) -> dict[str, Path]:
 	return output_paths
 
 
+def _save_neural_outputs(root: Path, neural_output: dict) -> dict[str, Path]:
+	"""Persist Step 5 neural artifacts to metrics/plots/artifacts folders."""
+
+	metrics_dir = root / "Results" / "metrics" / "neural"
+	plots_dir = root / "Results" / "plots" / "neural"
+	artifacts_dir = root / "Results" / "artifacts" / "neural"
+
+	metrics_dir.mkdir(parents=True, exist_ok=True)
+	plots_dir.mkdir(parents=True, exist_ok=True)
+	artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+	output_paths = {
+		"neural_grid": metrics_dir / "grid.csv",
+		"neural_summary": metrics_dir / "summary.csv",
+		"neural_forecasts": metrics_dir / "forecasts.csv",
+		"neural_winner_params": artifacts_dir / "winner_params.json",
+		"neural_config": artifacts_dir / "config.json",
+	}
+
+	neural_output["grid"].to_csv(output_paths["neural_grid"], index=False)
+	neural_output["summary"].to_csv(output_paths["neural_summary"], index=False)
+	neural_output["forecast_table"].to_csv(output_paths["neural_forecasts"], index=False)
+
+	pd.Series(neural_output["winner_params"]).to_json(output_paths["neural_winner_params"], indent=2)
+	pd.Series(neural_output["config"]).to_json(output_paths["neural_config"], indent=2)
+
+	plot_paths = save_neural_plots(neural_output, plots_dir)
+	output_paths.update(plot_paths)
+
+	return output_paths
+
+
 def main() -> None:
 	"""Run the currently implemented pipeline steps end-to-end."""
 
@@ -262,6 +299,29 @@ def main() -> None:
 
 	print(f"Step 4 ML completed. Winner: {ml_output['winner']}")
 	for name, file_path in ml_paths.items():
+		print(f"- {name}: {file_path}")
+
+	# Step 5 - canonical torch-based neural baseline.
+	# Standalone Step 5 runners are available in Project/models/neural/runners/.
+	_, neural_preproc_output, _, neural_selected_cfg = prepare_preprocessing_for_profile(
+		series=series,
+		profile="neural",
+		base_config=PreprocessingConfig(run_shapiro=True),
+	)
+
+	neural_runner = NeuralModelRunner(
+		train=neural_preproc_output["splits"]["train"],
+		validation=neural_preproc_output["splits"]["val"],
+		test=neural_preproc_output["splits"]["test"],
+		config=build_compact_neural_config(),
+		original_series=series,
+		preprocessing_config=neural_selected_cfg,
+	)
+	neural_output = neural_runner.run()
+	neural_paths = _save_neural_outputs(root, neural_output)
+
+	print(f"Step 5 Neural completed. Winner: {neural_output['winner']}")
+	for name, file_path in neural_paths.items():
 		print(f"- {name}: {file_path}")
 
 

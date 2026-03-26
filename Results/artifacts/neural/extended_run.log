@@ -1,0 +1,11 @@
+Step 5 neural extended completed. Winner: lstm
+Saved outputs:
+- preproc_candidates: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\preprocessing\candidate_tests_neural_extended.csv
+- preproc_selected_config: C:\Users\giann\Documents\GitHub\FinalProject\Results\artifacts\preprocessing\selected_config_neural_extended.json
+- grid: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\neural\grid_extended.csv
+- summary: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\neural\summary_extended.csv
+- forecasts: C:\Users\giann\Documents\GitHub\FinalProject\Results\metrics\neural\forecasts_extended.csv
+- winner: C:\Users\giann\Documents\GitHub\FinalProject\Results\artifacts\neural\winner_params_extended.json
+- config: C:\Users\giann\Documents\GitHub\FinalProject\Results\artifacts\neural\config_extended.json
+- neural_plot_forecasts: C:\Users\giann\Documents\GitHub\FinalProject\Results\plots\neural\forecast_comparison_extended.png
+- neural_plot_forecasts_original_scale: C:\Users\giann\Documents\GitHub\FinalProject\Results\plots\neural\forecast_original_scale_extended.png
