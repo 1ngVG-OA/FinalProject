@@ -1,5 +1,5 @@
-use_log1p,power_exponent,diff_order,scale_method,adf_pvalue_train,kpss_pvalue_train,adf_stationary_train,kpss_stationary_train
-False,,0,none,1.0,0.01,False,False
-False,,1,none,0.9692540936200874,0.01,False,False
-True,,1,none,0.5285964351539963,0.01,False,False
-True,,2,none,6.055980523315706e-18,0.1,True,True
+use_log1p,power_exponent,diff_order,scale_method,adf_pvalue_train,kpss_pvalue_train,adf_stationary_train,kpss_stationary_train,abs_mbe_zero_val,abs_mbe_zero_val_orig,best_order,best_seasonal_order,aicc_best,rmse_val_backtest,mae_val_backtest,mbe_val_backtest,abs_mbe_val_backtest,rmse_val_orig_backtest,mae_val_orig_backtest,mbe_val_orig_backtest,abs_mbe_val_orig_backtest,has_orig_backtest,rank_rmse_backtest,rank_abs_mbe_backtest,score_backtest,backtest_lambda,drift_guard_threshold,drift_guard_excluded,rank_backtest
+False,,0,none,1.0,0.01,False,False,189087.2,,"(0, 0, 0)","(0, 0, 0, 0)",2173.4584978222765,190427.2316384923,189087.2,-189087.2,189087.2,,,,,False,inf,inf,inf,0.5,2000.0,False,3.0
+False,,1,none,0.9692540936200874,0.01,False,False,3888.5789473684213,,"(0, 0, 0)","(0, 0, 0, 0)",1707.6323485188486,6144.115348937765,5034.578947368421,-3888.5789473684213,3888.5789473684213,,,,,False,inf,inf,inf,0.5,2000.0,False,3.0
+True,,1,none,0.5285964351539963,0.01,False,False,0.021205784253794772,42297.05263157904,"(1, 0, 0)","(0, 0, 0, 0)",-135.73253810850164,0.032553766647830266,0.02628483868033767,-0.01785970037066195,0.01785970037066195,39151.69866209478,34378.47783497282,-33945.74180381528,33945.74180381528,True,39151.69866209478,33945.74180381528,56124.56956400242,0.5,2000.0,False,2.0
+True,,2,none,6.055980523315706e-18,0.1,True,True,0.0020209210416137885,2281.997918571142,"(0, 0, 0)","(0, 0, 0, 0)",-121.84419685431662,0.04049785037029154,0.029648777571584094,0.0020209210416137885,0.0020209210416137885,6933.849602129962,5414.245026262616,-2281.997918571142,2281.997918571142,True,6933.849602129962,2281.997918571142,8074.8485614155325,0.5,2000.0,True,1.0

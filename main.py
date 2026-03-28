@@ -90,6 +90,7 @@ def _save_preprocessing_outputs(
 		"preproc_tests": metrics_dir / "tests.csv",
 		"preproc_local_outliers": metrics_dir / "local_outliers.csv",
 		"preproc_candidate_tests": metrics_dir / "candidate_tests.csv",
+		"preproc_candidate_backtest": metrics_dir / "candidate_backtest.csv",
 		"preproc_selected_config": artifacts_dir / "selected_config.json",
 		"preproc_train": processed_dir / "tavola_1_14_preprocessed_train_v1.csv",
 		"preproc_val": processed_dir / "tavola_1_14_preprocessed_val_v1.csv",
@@ -100,6 +101,38 @@ def _save_preprocessing_outputs(
 	tests_df.to_csv(output_paths["preproc_tests"], index=False)
 	preproc_output["local_outliers"].to_csv(output_paths["preproc_local_outliers"], index=False)
 	candidate_df.to_csv(output_paths["preproc_candidate_tests"], index=False)
+
+	backtest_cols = [
+		"use_log1p",
+		"power_exponent",
+		"diff_order",
+		"scale_method",
+		"best_order",
+		"best_seasonal_order",
+		"aicc_best",
+		"rmse_val_backtest",
+		"mae_val_backtest",
+		"mbe_val_backtest",
+		"abs_mbe_val_backtest",
+		"rmse_val_orig_backtest",
+		"mae_val_orig_backtest",
+		"mbe_val_orig_backtest",
+		"abs_mbe_val_orig_backtest",
+		"has_orig_backtest",
+		"rank_rmse_backtest",
+		"rank_abs_mbe_backtest",
+		"score_backtest",
+		"rank_backtest",
+		"backtest_lambda",
+		"drift_guard_threshold",
+		"drift_guard_excluded",
+	]
+	available_backtest_cols = [c for c in backtest_cols if c in candidate_df.columns]
+	if available_backtest_cols:
+		candidate_df[available_backtest_cols].to_csv(output_paths["preproc_candidate_backtest"], index=False)
+	else:
+		pd.DataFrame().to_csv(output_paths["preproc_candidate_backtest"], index=False)
+
 	save_selected_preprocessing_config(selected_cfg, output_paths["preproc_selected_config"])
 
 	for split_name in ("train", "val", "test"):

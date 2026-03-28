@@ -1,7 +1,7 @@
 {
-  "family":"ml",
-  "model":"decision_tree",
+  "family":"statistical",
+  "model":"sarima",
   "global_rank":1,
-  "rank_rmse_val_global":0.0000000001,
-  "rank_abs_mbe_val_global":0.0
+  "rank_rmse_val_global":6301.9825273155,
+  "rank_abs_mbe_val_global":1038.5964853648
 }

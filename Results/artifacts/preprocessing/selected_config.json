@@ -6,7 +6,7 @@
   "transform": {
     "use_log1p": true,
     "power_exponent": null,
-    "diff_order": 2,
+    "diff_order": 1,
     "scale_method": "none"
   },
   "outliers": {
