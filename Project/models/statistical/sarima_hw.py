@@ -1,7 +1,6 @@
 """Statistical model orchestrator for Step 3.
 
-Delegates SARIMA grid search to :class:`SarimaRunner` (``sarima.py``) and
-Holt-Winters benchmark to :class:`HoltWintersRunner` (``hw.py``).
+Delegates SARIMA grid search and evaluation to :class:`SarimaRunner` (``sarima.py``).
 Shared configuration and utility functions live in ``model_config.py``.
 """
 
@@ -26,14 +25,13 @@ from .evaluation import (
 )
 from .plotting import save_statistical_plots
 from .sarima import SarimaRunner
-from .hw import HoltWintersRunner
 
 
 class StatisticalModelRunner:
-    """Run Step 3 SARIMA and HW benchmark following a shared protocol.
+    """Run Step 3 SARIMA following a shared protocol.
 
     Internally delegates the grid-search and refit logic to
-    :class:`SarimaRunner` and :class:`HoltWintersRunner` respectively.
+    :class:`SarimaRunner`.
     """
 
     def __init__(
@@ -63,52 +61,31 @@ class StatisticalModelRunner:
             use_log1p=use_log1p,
             diff_order=diff_order,
         )
-        self._hw_runner = HoltWintersRunner(
-            train, validation, test,
-            config=self.config,
-            original_series=original_series,
-            use_log1p=use_log1p,
-            diff_order=diff_order,
-        )
 
     def run(self) -> dict[str, Any]:
         """Run complete Step 3 workflow and return all artifacts."""
 
         sarima_grid_df, sarima_best = self._sarima_runner.fit_sarima_grid()
-        hw_grid_df, hw_best = self._hw_runner.fit_hw_grid()
 
         sarima_val_pred = pd.Series(
             np.asarray(sarima_best["fit"].forecast(len(self.validation))),
             index=self.validation.index,
         )
-        hw_val_pred = pd.Series(
-            np.asarray(hw_best["fit"].forecast(len(self.validation))),
-            index=self.validation.index,
-        )
 
         sarima_final = self._sarima_runner.refit(sarima_best["cfg"])
-        hw_final = self._hw_runner.refit(hw_best["cfg"])
 
         sarima_test_pred = pd.Series(
             np.asarray(sarima_final.forecast(len(self.test))), index=self.test.index
-        )
-        hw_test_pred = pd.Series(
-            np.asarray(hw_final.forecast(len(self.test))), index=self.test.index
         )
 
         summary = build_summary_table(
             validation=self.validation,
             test=self.test,
             sarima_best=sarima_best,
-            hw_best=hw_best,
             sarima_val_pred=sarima_val_pred,
-            hw_val_pred=hw_val_pred,
             sarima_test_pred=sarima_test_pred,
-            hw_test_pred=hw_test_pred,
             sarima_final=sarima_final,
-            hw_final=hw_final,
             sarima_orig_context=self._sarima_runner._orig_context,
-            hw_orig_context=self._hw_runner._orig_context,
             diff_order=self.diff_order,
             train_validation_len=len(self.train_validation),
         )
@@ -119,31 +96,20 @@ class StatisticalModelRunner:
             self.validation
             - pd.Series(np.asarray(sarima_val_pred), index=self.validation.index)
         ).dropna()
-        hw_resid = (
-            self.validation
-            - pd.Series(np.asarray(hw_val_pred), index=self.validation.index)
-        ).dropna()
 
-        residual_diagnostics = pd.concat(
-            [
-                build_residuals_table("sarima", sarima_resid, self.config.ljung_box_lags),
-                build_residuals_table("holt_winters", hw_resid, self.config.ljung_box_lags),
-            ],
-            ignore_index=True,
+        residual_diagnostics = build_residuals_table(
+            "sarima", sarima_resid, self.config.ljung_box_lags
         )
 
         forecast_table = build_forecast_table(
             validation=self.validation,
             test=self.test,
             sarima_val_pred=sarima_val_pred,
-            hw_val_pred=hw_val_pred,
             sarima_test_pred=sarima_test_pred,
-            hw_test_pred=hw_test_pred,
         )
 
         return {
             "sarima_grid": sarima_grid_df,
-            "hw_grid": hw_grid_df,
             "summary": summary,
             "winner": winner,
             "winner_params": dict(best_row),
@@ -154,17 +120,10 @@ class StatisticalModelRunner:
             "sarima_val_pred": pd.Series(
                 np.asarray(sarima_val_pred), index=self.validation.index
             ),
-            "hw_val_pred": pd.Series(
-                np.asarray(hw_val_pred), index=self.validation.index
-            ),
             "sarima_test_pred": pd.Series(
                 np.asarray(sarima_test_pred), index=self.test.index
             ),
-            "hw_test_pred": pd.Series(
-                np.asarray(hw_test_pred), index=self.test.index
-            ),
             "sarima_validation_residuals": sarima_resid,
-            "hw_validation_residuals": hw_resid,
             "original_series": self.original_series,
             "use_log1p": self.use_log1p,
             "diff_order": self.diff_order,

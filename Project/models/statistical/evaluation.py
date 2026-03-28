@@ -37,25 +37,17 @@ def build_summary_table(
     validation: pd.Series,
     test: pd.Series,
     sarima_best: dict[str, Any],
-    hw_best: dict[str, Any],
     sarima_val_pred: pd.Series,
-    hw_val_pred: pd.Series,
     sarima_test_pred: pd.Series,
-    hw_test_pred: pd.Series,
     sarima_final: Any,
-    hw_final: Any,
     sarima_orig_context: dict[str, Any] | None,
-    hw_orig_context: dict[str, Any] | None,
     diff_order: int,
     train_validation_len: int,
 ) -> pd.DataFrame:
-    """Build the summary table used to compare SARIMA and Holt-Winters."""
+    """Build the summary table for SARIMA."""
 
     sarima_val_orig_metrics = validation_original_metrics(
         sarima_val_pred, sarima_orig_context, diff_order
-    )
-    hw_val_orig_metrics = validation_original_metrics(
-        hw_val_pred, hw_orig_context, diff_order
     )
 
     def _m(series: pd.Series, pred: pd.Series) -> dict[str, float]:
@@ -93,27 +85,6 @@ def build_summary_table(
                     int(sarima_final.params.shape[0]),
                 ),
             },
-            {
-                "model": "holt_winters",
-                "best_params": str(hw_best["cfg"]),
-                "rmse_val": _m(validation, hw_val_pred)["rmse"],
-                "mae_val": _m(validation, hw_val_pred)["mae"],
-                "mape_val": _m(validation, hw_val_pred)["mape"],
-                "mbe_val": _m(validation, hw_val_pred)["mbe"],
-                "abs_mbe_val": _m(validation, hw_val_pred)["abs_mbe"],
-                "rmse_val_orig": np.nan if hw_val_orig_metrics is None else hw_val_orig_metrics["rmse"],
-                "mae_val_orig": np.nan if hw_val_orig_metrics is None else hw_val_orig_metrics["mae"],
-                "mape_val_orig": np.nan if hw_val_orig_metrics is None else hw_val_orig_metrics["mape"],
-                "mbe_val_orig": np.nan if hw_val_orig_metrics is None else hw_val_orig_metrics["mbe"],
-                "abs_mbe_val_orig": np.nan if hw_val_orig_metrics is None else hw_val_orig_metrics["abs_mbe"],
-                "rmse_test": _m(test, hw_test_pred)["rmse"],
-                "mae_test": _m(test, hw_test_pred)["mae"],
-                "mape_test": _m(test, hw_test_pred)["mape"],
-                "mbe_test": _m(test, hw_test_pred)["mbe"],
-                "abs_mbe_test": _m(test, hw_test_pred)["abs_mbe"],
-                "aic": float(getattr(hw_final, "aic", np.nan)),
-                "aicc": float(getattr(hw_final, "aicc", np.nan)),
-            },
         ]
     )
 
@@ -122,9 +93,7 @@ def build_forecast_table(
     validation: pd.Series,
     test: pd.Series,
     sarima_val_pred: pd.Series,
-    hw_val_pred: pd.Series,
     sarima_test_pred: pd.Series,
-    hw_test_pred: pd.Series,
 ) -> pd.DataFrame:
     """Build the merged forecast table for validation and test splits."""
     return pd.DataFrame(
@@ -133,7 +102,6 @@ def build_forecast_table(
             "timestamp": list(validation.index) + list(test.index),
             "actual": list(validation.values) + list(test.values),
             "sarima_pred": list(np.asarray(sarima_val_pred)) + list(np.asarray(sarima_test_pred)),
-            "hw_pred": list(np.asarray(hw_val_pred)) + list(np.asarray(hw_test_pred)),
         }
     )
 

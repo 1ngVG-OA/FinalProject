@@ -41,14 +41,12 @@ def save_statistical_plots(
     ax.plot(test_idx, output["test_actual"].values, color="dimgray", linewidth=2, label="actual_test")
     ax.plot(val_idx, output["sarima_val_pred"].values, color="tab:blue", linestyle="--", label="sarima_val")
     ax.plot(test_idx, output["sarima_test_pred"].values, color="tab:blue", label="sarima_test")
-    ax.plot(val_idx, output["hw_val_pred"].values, color="tab:orange", linestyle="--", label="hw_val")
-    ax.plot(test_idx, output["hw_test_pred"].values, color="tab:orange", label="hw_test")
     ax.axvline(val_idx.max(), color="gray", linestyle=":", linewidth=1)
-    ax.set_title("Step 3 - SARIMA vs Holt-Winters Forecasts")
+    ax.set_title("Step 3 - SARIMA Forecasts")
     ax.set_xlabel("Time")
     ax.set_ylabel("Transformed value")
     ax.grid(alpha=0.25)
-    ax.legend(ncol=2)
+    ax.legend()
     fig.tight_layout()
     fig.savefig(paths["stat_plot_forecasts"], dpi=150)
     plt.close(fig)
@@ -59,26 +57,16 @@ def save_statistical_plots(
     def _pacf_lags(residuals: pd.Series) -> int:
         return max(1, min(20, (len(residuals) // 2) - 1))
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-    plot_acf(output["sarima_validation_residuals"], lags=_acf_lags(output["sarima_validation_residuals"]), ax=axes[0, 0])
-    axes[0, 0].set_title("SARIMA Residuals ACF")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    plot_acf(output["sarima_validation_residuals"], lags=_acf_lags(output["sarima_validation_residuals"]), ax=axes[0])
+    axes[0].set_title("SARIMA Residuals ACF")
     plot_pacf(
         output["sarima_validation_residuals"],
         lags=_pacf_lags(output["sarima_validation_residuals"]),
-        ax=axes[0, 1],
+        ax=axes[1],
         method="ywm",
     )
-    axes[0, 1].set_title("SARIMA Residuals PACF")
-
-    plot_acf(output["hw_validation_residuals"], lags=_acf_lags(output["hw_validation_residuals"]), ax=axes[1, 0])
-    axes[1, 0].set_title("HW Residuals ACF")
-    plot_pacf(
-        output["hw_validation_residuals"],
-        lags=_pacf_lags(output["hw_validation_residuals"]),
-        ax=axes[1, 1],
-        method="ywm",
-    )
-    axes[1, 1].set_title("HW Residuals PACF")
+    axes[1].set_title("SARIMA Residuals PACF")
 
     fig.tight_layout()
     fig.savefig(paths["stat_plot_residuals"], dpi=150)
@@ -105,9 +93,7 @@ def save_statistical_plots(
             seed_log_test = float(x_log[x_log.index < test_start].iloc[-1])
 
             sarima_val_orig = np.expm1(seed_log_val + output["sarima_val_pred"].cumsum())
-            hw_val_orig = np.expm1(seed_log_val + output["hw_val_pred"].cumsum())
             sarima_test_orig = np.expm1(seed_log_test + output["sarima_test_pred"].cumsum())
-            hw_test_orig = np.expm1(seed_log_test + output["hw_test_pred"].cumsum())
         else:
             x_d1 = x_log.diff().dropna()
             seed_d1_val = float(x_d1[x_d1.index < val_start].iloc[-1])
@@ -116,9 +102,7 @@ def save_statistical_plots(
             seed_log_test = float(x_log[x_log.index < test_start].iloc[-1])
 
             sarima_val_orig = invert_diff2_log1p(output["sarima_val_pred"], seed_d1_val, seed_log_val)
-            hw_val_orig = invert_diff2_log1p(output["hw_val_pred"], seed_d1_val, seed_log_val)
             sarima_test_orig = invert_diff2_log1p(output["sarima_test_pred"], seed_d1_test, seed_log_test)
-            hw_test_orig = invert_diff2_log1p(output["hw_test_pred"], seed_d1_test, seed_log_test)
 
         fig, ax = plt.subplots(figsize=(14, 5))
         ax.plot(raw.index, raw.values, color="black", linewidth=2.2, label="serie_originale", zorder=4)
@@ -127,10 +111,8 @@ def save_statistical_plots(
 
         ax.plot(sarima_val_orig.index, sarima_val_orig.values, color="tab:blue", linestyle="--", linewidth=1.8, label="sarima_val_orig")
         ax.plot(sarima_test_orig.index, sarima_test_orig.values, color="tab:blue", linewidth=2.2, label="sarima_test_orig")
-        ax.plot(hw_val_orig.index, hw_val_orig.values, color="tab:orange", linestyle="--", linewidth=1.5, label="hw_val_orig")
-        ax.plot(hw_test_orig.index, hw_test_orig.values, color="tab:orange", linewidth=1.8, label="hw_test_orig")
 
-        ax.set_title("Step 3 - Forecasts on Original Scale")
+        ax.set_title("Step 3 - SARIMA Forecasts on Original Scale")
         ax.set_xlabel("Time")
         ax.set_ylabel("Original value")
         ax.grid(alpha=0.3)

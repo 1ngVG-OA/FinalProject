@@ -60,7 +60,6 @@ def run_baseline() -> None:
         "preproc_candidates": preproc_metrics_dir / "candidate_tests_baseline.csv",
         "preproc_selected_config": preproc_artifacts_dir / "selected_config_baseline.json",
         "sarima_grid": stat_metrics_dir / "sarima_grid_baseline.csv",
-        "hw_grid": stat_metrics_dir / "hw_grid_baseline.csv",
         "summary": stat_metrics_dir / "summary_baseline.csv",
         "residual_diagnostics": stat_metrics_dir / "residual_diagnostics_baseline.csv",
         "forecasts": stat_metrics_dir / "forecasts_baseline.csv",
@@ -70,7 +69,6 @@ def run_baseline() -> None:
     candidate_df.to_csv(out_paths["preproc_candidates"], index=False)
     save_selected_preprocessing_config(selected_cfg, out_paths["preproc_selected_config"])
     output["sarima_grid"].to_csv(out_paths["sarima_grid"], index=False)
-    output["hw_grid"].to_csv(out_paths["hw_grid"], index=False)
     output["summary"].to_csv(out_paths["summary"], index=False)
     output["residual_diagnostics"].to_csv(out_paths["residual_diagnostics"], index=False)
     output["forecast_table"].to_csv(out_paths["forecasts"], index=False)

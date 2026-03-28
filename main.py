@@ -125,7 +125,6 @@ def _save_statistical_outputs(root: Path, stat_output: dict) -> dict[str, Path]:
 
 	output_paths = {
 		"stat_sarima_grid": metrics_dir / "sarima_grid.csv",
-		"stat_hw_grid": metrics_dir / "hw_grid.csv",
 		"stat_summary": metrics_dir / "summary.csv",
 		"stat_residual_diagnostics": metrics_dir / "residual_diagnostics.csv",
 		"stat_forecasts": metrics_dir / "forecasts.csv",
@@ -133,7 +132,6 @@ def _save_statistical_outputs(root: Path, stat_output: dict) -> dict[str, Path]:
 	}
 
 	stat_output["sarima_grid"].to_csv(output_paths["stat_sarima_grid"], index=False)
-	stat_output["hw_grid"].to_csv(output_paths["stat_hw_grid"], index=False)
 	stat_output["summary"].to_csv(output_paths["stat_summary"], index=False)
 	stat_output["residual_diagnostics"].to_csv(output_paths["stat_residual_diagnostics"], index=False)
 	stat_output["forecast_table"].to_csv(output_paths["stat_forecasts"], index=False)
