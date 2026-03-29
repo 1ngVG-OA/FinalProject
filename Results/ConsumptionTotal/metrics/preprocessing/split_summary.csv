@@ -1,0 +1,4 @@
+split,start,end,n
+train,1932,1988,57
+val,1989,2001,12
+test,2002,2014,13

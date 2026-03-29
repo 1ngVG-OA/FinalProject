@@ -1,0 +1,2 @@
+model,residual_mean,residual_std,ljung_box_lag,ljung_box_stat,ljung_box_pvalue
+sarima,-0.007099964789044064,0.011377107111976044,4,3.040537016133647,0.5510646958426443

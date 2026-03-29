@@ -1,0 +1,7 @@
+{
+  "family":"ml",
+  "model":"random_forest",
+  "global_rank":1,
+  "rank_rmse_val_global":2283.4288759079,
+  "rank_abs_mbe_val_global":1480.7744237884
+}

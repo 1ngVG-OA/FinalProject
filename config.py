@@ -1,61 +1,118 @@
-# File di configurazione globale per il progetto di forecasting. 
-# Contiene costanti, percorsi e configurazioni utilizzati in tutto il codice.
-from pathlib import Path
+"""Configurazione centrale della pipeline forecasting multi-serie.
 
-# Directory paths per datasets, results, and plots.
+Il modulo definisce le serie supportate, la regola di naming degli output e
+helper condivisi per risolvere dataset, cartelle `Results/<serie>/...` e
+`Datasets/processed/<serie>/...`.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+import re
+
+
+# ------------------------------------------------------------------
+# Path base di progetto
+# ------------------------------------------------------------------
+
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "Datasets"
-RESULTS_DIR = BASE_DIR / "results"
-PLOTS_DIR = RESULTS_DIR / "plots"
+RESULTS_DIR = BASE_DIR / "Results"
+PROCESSED_DIR = DATA_DIR / "processed"
 
-# Seed per la riproducibilità dei risultati, utilizzato in modelli ML e XGBoost.
+
+# ------------------------------------------------------------------
+# Costanti globali
+# ------------------------------------------------------------------
+
 SEED = 1234
+DEFAULT_SERIES_KEY = "production_total"
 
-# Blocco di configurazione per serie temporali utilizzato da `Mains/utils.py`.
-#
-# Significato dei campi:
-# - csv_path: percorso del dataset di origine
-# - date_col: colonna datetime da analizzare e utilizzare come indice
-# - value_col: colonna numerica target
-# - freq: frequenza temporale prevista (regolarizzazione)
-# - split: tuple (cut1, cut2) per suddividere train/validation/test
-# - seasonal: se abilitare le impostazioni del modello statistico stagionale
-# - seasonal_period: periodo di stagionalità (ad esempio 12 per mensile)
-# - diff_order: ordine di differenziazione utilizzato da auto_arima
-SERIES_CONFIG = {
-    # Serie definite da ISTAT 
-    "Energy production and consumed": {
-        "csv_path": DATA_DIR / "Tavola_1.14.csv",
-        "date_col": "date",
-        "value_col": "values",
-        "freq": "ME",
-        "split": (111, 123),
-        "seasonal": True,
-        "seasonal_period": 12,
-        "diff_order": 2,
-    }
+
+# ------------------------------------------------------------------
+# Configurazione serie
+# ------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class SeriesConfig:
+    """Configurazione di una singola serie studiata dalla pipeline."""
+
+    key: str
+    dataset_path: Path
+    target_column_index: int
+    target_series_name: str
+    display_name: str
+    frequency: str | None = None
+    notes: str | None = None
+    output_name: str | None = None
+
+
+SERIES_REGISTRY: dict[str, SeriesConfig] = {
+    "production_total": SeriesConfig(
+        key="production_total",
+        dataset_path=DATA_DIR / "Tavola_1.14.csv",
+        target_column_index=1,
+        target_series_name="produzione_lorda_totale",
+        display_name="Produzione lorda totale energia",
+        frequency="YE",
+        notes="Serie annuale ISTAT derivata da Tavola_1.14.",
+    ),
+    "consumption_total": SeriesConfig(
+        key="consumption_total",
+        dataset_path=DATA_DIR / "Tavola_1.14.csv",
+        target_column_index=12,
+        target_series_name="consumo_totale",
+        display_name="Consumo totale energia",
+        frequency="YE",
+        notes="Ultima colonna di Tavola_1.14; valori osservati dal 1931.",
+    ),
 }
 
-# Ricerca degli iperparametri per il modello MLP.
-MLP_PARAM_GRID = {
-    "look_back": [14, 28],
-    "hidden_size": [4, 8],
-    "lr": [1e-3, 1e-2],
-    "activation": ["relu", "tanh"],
-    "dropout": [0.0, 0.1],
-    "batch_size": [16, 32],
-}
 
-# Ricerca degli iperparametri per il modello autoregressivo XGBoost.
-XGB_PARAM_GRID = {
-    "look_back": [14, 28],
-    "n_estimators": [30, 80],
-    "max_depth": [2, 4],
-    "eta": [0.1, 0.3],
-    "subsample": [0.8, 1.0],
-    "colsample_bytree": [0.8, 1.0],
-    "seed": [SEED],
-}
+# ------------------------------------------------------------------
+# Helper naming e path
+# ------------------------------------------------------------------
 
-# Numero massimo di epoche per i cicli di fitting dell'MLP (con early stopping interno).
-MLP_EPOCHS = 300
+def derive_output_name(series_key: str) -> str:
+    """Deriva un nome cartella leggibile e stabile dalla chiave serie."""
+
+    tokens = [token for token in re.split(r"[^A-Za-z0-9]+", str(series_key).strip()) if token]
+    if not tokens:
+        raise ValueError("series_key must contain at least one alphanumeric token")
+    return "".join(token[:1].upper() + token[1:] for token in tokens)
+
+
+def get_series_config(series_key: str = DEFAULT_SERIES_KEY) -> SeriesConfig:
+    """Restituisce la configurazione della serie richiesta."""
+
+    try:
+        return SERIES_REGISTRY[series_key]
+    except KeyError as exc:
+        available = ", ".join(sorted(SERIES_REGISTRY))
+        raise KeyError(f"Unsupported series_key '{series_key}'. Available series: {available}") from exc
+
+
+def get_series_output_name(series_key: str = DEFAULT_SERIES_KEY) -> str:
+    """Restituisce il nome cartella output associato alla serie."""
+
+    cfg = get_series_config(series_key)
+    return cfg.output_name or derive_output_name(cfg.key)
+
+
+def get_results_root(series_key: str = DEFAULT_SERIES_KEY) -> Path:
+    """Restituisce la root Results dedicata alla serie."""
+
+    return RESULTS_DIR / get_series_output_name(series_key)
+
+
+def get_processed_root(series_key: str = DEFAULT_SERIES_KEY) -> Path:
+    """Restituisce la root dei dati preprocessati dedicata alla serie."""
+
+    return PROCESSED_DIR / get_series_output_name(series_key)
+
+
+def get_results_subdir(series_key: str, category: str, step: str) -> Path:
+    """Restituisce una sottocartella `Results/<serie>/<category>/<step>`."""
+
+    return get_results_root(series_key) / category / step

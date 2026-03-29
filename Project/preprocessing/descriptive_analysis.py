@@ -13,14 +13,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats
 
-
-TARGET_COLUMN_INDEX = {
-    "production_total": 1,
-}
-
-TARGET_SERIES_NAME = {
-    "production_total": "produzione_lorda_totale",
-}
+from config import DEFAULT_SERIES_KEY, get_series_config
 
 # ------------------------------------------------------------------
 # Configurazioni e parsing input
@@ -58,18 +51,16 @@ def _parse_istat_number(value: str) -> float:
 # ------------------------------------------------------------------
 
 # Funzione principale per caricare la serie target dal dataset CSV, pulire i dati e restituire una Serie Pandas con anni come indice e valori numerici.
-def load_target_series(dataset_path: Path, target: str = "production_total") -> pd.Series:
+def load_target_series(dataset_path: Path, target: str = DEFAULT_SERIES_KEY) -> pd.Series:
 
-    # Validazione dell'input target e caricamento del dataset CSV.
-    if target not in TARGET_COLUMN_INDEX:
-        options = ", ".join(sorted(TARGET_COLUMN_INDEX))
-        raise ValueError(f"Unsupported target '{target}'. Available targets: {options}")
+    # Validazione dell'input target e risoluzione della relativa configurazione.
+    series_cfg = get_series_config(target)
 
     # Filtro per righe che rappresentano anni e si estrae la colonna target specificata.
     raw = pd.read_csv(dataset_path, sep=";", header=None, dtype=str)
 
     year_mask = raw[0].astype(str).str.fullmatch(r"\d{4}") 
-    target_col = TARGET_COLUMN_INDEX[target]    
+    target_col = series_cfg.target_column_index
     data = raw.loc[year_mask, [0, target_col]].copy()  
     data.columns = ["year", "value"]   
 
@@ -79,7 +70,7 @@ def load_target_series(dataset_path: Path, target: str = "production_total") -> 
     data = data.dropna(subset=["year", "value"]).copy()
     data["year"] = data["year"].astype(int)
 
-    series_name = TARGET_SERIES_NAME.get(target, "target_series")
+    series_name = series_cfg.target_series_name
     series = pd.Series(data["value"].values, index=data["year"].values, name=series_name)
     series.index.name = "year"
     return series
@@ -445,7 +436,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
 # calcolo delle statistiche e generazione dei grafici, e salvando tutti i risultati nei percorsi definiti.
 def run_descriptive_analysis(
     paths: DescriptivePaths,
-    target: str = "production_total",
+    target: str = DEFAULT_SERIES_KEY,
 ) -> dict[str, Path]:
 
     paths.results_metrics_dir.mkdir(parents=True, exist_ok=True)

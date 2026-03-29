@@ -5,9 +5,9 @@ Questa guida definisce convenzioni minime per mantenere il progetto ordinato.
 ## 1) Directory operative
 
 - `Datasets/`: dati sorgente (csv/xls) forniti o raccolti.
-- `Datasets/processed/`: versioni preprocessate pronte per i modelli.
+- `Datasets/processed/`: versioni preprocessate organizzate per serie (`Datasets/processed/<SerieOutputName>/...`).
 - `Project/`: tutta la logica applicativa.
-- `Results/`: output persistenti (plot, metriche, report, artefatti).
+- `Results/`: output persistenti organizzati per serie (`Results/<SerieOutputName>/...`).
 
 ## 2) Struttura interna di Project
 
@@ -22,13 +22,15 @@ Questa guida definisce convenzioni minime per mantenere il progetto ordinato.
 
 ## 3) Struttura interna di Results
 
-- `Results/plots/descriptive/`: grafici EDA e distribuzioni.
-- `Results/plots/preprocessing/`: ACF/PACF, trasformazioni, stazionarieta.
-- `Results/plots/forecasting/`: forecast e residui per modello.
-- `Results/plots/comparison/`: confronto tra modelli.
-- `Results/metrics/`: tabelle metriche aggregate e per modello.
-- `Results/reports/`: report finali e note metodologiche.
-- `Results/artifacts/`: file serializzati (parametri migliori, oggetti utili).
+- `Results/<SerieOutputName>/plots/descriptive/`: grafici EDA e distribuzioni.
+- `Results/<SerieOutputName>/plots/preprocessing/`: ACF/PACF, trasformazioni, stazionarieta.
+- `Results/<SerieOutputName>/plots/statistical/`: forecast e diagnostica del blocco statistico.
+- `Results/<SerieOutputName>/plots/ml/`: forecast e diagnostica del blocco ML.
+- `Results/<SerieOutputName>/plots/neural/`: forecast e diagnostica del blocco neurale.
+- `Results/<SerieOutputName>/metrics/`: tabelle metriche per tutti gli step della serie.
+- `Results/<SerieOutputName>/artifacts/`: file serializzati, configurazioni e winner params della serie.
+
+`<SerieOutputName>` viene derivato automaticamente dalla chiave serie configurata in `config.py`.
 
 ## 4) Convenzione nomi file (consigliata)
 
@@ -51,7 +53,14 @@ Regole:
 
 ## 5) Entry point e scope
 
-- `main.py` in root: esecuzione orchestrata della pipeline.
+- `main.py` in root: esecuzione orchestrata della pipeline, con selezione serie tramite config e parametro `--series`.
 - `Tavola_1.14.ipynb` in root: notebook descrittivo/esplicativo del workflow.
 
 Nota: in fase di consegna finale, privilegiare l'esecuzione script-based se richiesto dal corso.
+
+## 6) Aggiunta di una nuova serie
+
+- aggiungere una nuova entry in `config.py` dentro `SERIES_REGISTRY`;
+- definire almeno dataset sorgente, indice colonna target e nome della serie;
+- eseguire `python main.py --series <series_key>` per lanciare la pipeline sulla nuova serie;
+- tutti gli output verranno salvati automaticamente in `Results/<SerieOutputName>/...` e `Datasets/processed/<SerieOutputName>/...`.

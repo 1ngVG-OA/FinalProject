@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import pandas as pd
+
+from config import (
+	DEFAULT_SERIES_KEY,
+	get_processed_root,
+	get_results_root,
+	get_results_subdir,
+	get_series_config,
+	get_series_output_name,
+)
 
 #Import del modulo di valutazione, che contiene funzioni per confrontare le performance dei modelli e generare tabelle di confronto e scenari prescriptivi.
 from Project.evaluation import (
@@ -47,22 +57,22 @@ from Project.preprocessing.descriptive_analysis import (
 	run_descriptive_analysis,	# Funzione per eseguire l'analisi descrittiva sui dati.
 )
 
-# Definizione della chiave della serie temporale target nel dataset.
-TARGET_SERIES_KEY = "production_total" 
+# Definizione della chiave di default della serie temporale target.
+TARGET_SERIES_KEY = DEFAULT_SERIES_KEY
 
 # Funzione per salvare gli output del preprocessing. I risultati vengono salvati in modo organizzato nelle cartelle di metrics, plots e artifacts.
 def _save_preprocessing_outputs(
-	root: Path, 
+	series_key: str,
 	preproc: TimeSeriesPreprocessor,
 	preproc_output: dict,
 	candidate_df: pd.DataFrame,
 	selected_cfg: PreprocessingConfig,
 ) -> dict[str, Path]:
 
-	metrics_dir = root / "Results" / "metrics" / "preprocessing"
-	processed_dir = root / "Datasets" / "processed"
-	artifacts_dir = root / "Results" / "artifacts" / "preprocessing"
-	preproc_plots_dir = root / "Results" / "plots" / "preprocessing"
+	metrics_dir = get_results_subdir(series_key, "metrics", "preprocessing")
+	processed_dir = get_processed_root(series_key)
+	artifacts_dir = get_results_subdir(series_key, "artifacts", "preprocessing")
+	preproc_plots_dir = get_results_subdir(series_key, "plots", "preprocessing")
 
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 	processed_dir.mkdir(parents=True, exist_ok=True)
@@ -98,9 +108,9 @@ def _save_preprocessing_outputs(
 		"preproc_candidate_tests": metrics_dir / "candidate_tests.csv",
 		"preproc_candidate_backtest": metrics_dir / "candidate_backtest.csv",
 		"preproc_selected_config": artifacts_dir / "selected_config.json",
-		"preproc_train": processed_dir / "tavola_1_14_preprocessed_train_v1.csv",
-		"preproc_val": processed_dir / "tavola_1_14_preprocessed_val_v1.csv",
-		"preproc_test": processed_dir / "tavola_1_14_preprocessed_test_v1.csv",
+		"preproc_train": processed_dir / "preprocessed_train_v1.csv",
+		"preproc_val": processed_dir / "preprocessed_val_v1.csv",
+		"preproc_test": processed_dir / "preprocessed_test_v1.csv",
 	}
 
 	preproc_output["split_summary"].to_csv(output_paths["preproc_split_summary"], index=False)
@@ -154,12 +164,12 @@ def _save_preprocessing_outputs(
 	return output_paths
 
 # Le funzioni per salvare gli output dei vari step (statistico, ML, neurale, confronto e valutazione inferenziale/prescrittiva) seguono una struttura simile: creano le cartelle necessarie, definiscono i percorsi di output, salvano i DataFrame e i file JSON nei percorsi definiti e restituiscono un dizionario con i nomi degli output e i rispettivi percorsi.
-def _save_statistical_outputs(root: Path, stat_output: dict) -> dict[str, Path]:
+def _save_statistical_outputs(series_key: str, stat_output: dict) -> dict[str, Path]:
 	"""Persist Step 3 statistical artifacts to metrics/plots/artifacts folders."""
 
-	metrics_dir = root / "Results" / "metrics" / "statistical"
-	plots_dir = root / "Results" / "plots" / "statistical"
-	artifacts_dir = root / "Results" / "artifacts" / "statistical"
+	metrics_dir = get_results_subdir(series_key, "metrics", "statistical")
+	plots_dir = get_results_subdir(series_key, "plots", "statistical")
+	artifacts_dir = get_results_subdir(series_key, "artifacts", "statistical")
 
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 	plots_dir.mkdir(parents=True, exist_ok=True)
@@ -186,12 +196,12 @@ def _save_statistical_outputs(root: Path, stat_output: dict) -> dict[str, Path]:
 	return output_paths
 
 
-def _save_ml_outputs(root: Path, ml_output: dict) -> dict[str, Path]:
+def _save_ml_outputs(series_key: str, ml_output: dict) -> dict[str, Path]:
 	"""Persist Step 4 ML artifacts to metrics/plots/artifacts folders."""
 
-	metrics_dir = root / "Results" / "metrics" / "ml"
-	plots_dir = root / "Results" / "plots" / "ml"
-	artifacts_dir = root / "Results" / "artifacts" / "ml"
+	metrics_dir = get_results_subdir(series_key, "metrics", "ml")
+	plots_dir = get_results_subdir(series_key, "plots", "ml")
+	artifacts_dir = get_results_subdir(series_key, "artifacts", "ml")
 
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 	plots_dir.mkdir(parents=True, exist_ok=True)
@@ -220,12 +230,12 @@ def _save_ml_outputs(root: Path, ml_output: dict) -> dict[str, Path]:
 	return output_paths
 
 
-def _save_neural_outputs(root: Path, neural_output: dict) -> dict[str, Path]:
+def _save_neural_outputs(series_key: str, neural_output: dict) -> dict[str, Path]:
 	"""Persist Step 5 neural artifacts to metrics/plots/artifacts folders."""
 
-	metrics_dir = root / "Results" / "metrics" / "neural"
-	plots_dir = root / "Results" / "plots" / "neural"
-	artifacts_dir = root / "Results" / "artifacts" / "neural"
+	metrics_dir = get_results_subdir(series_key, "metrics", "neural")
+	plots_dir = get_results_subdir(series_key, "plots", "neural")
+	artifacts_dir = get_results_subdir(series_key, "artifacts", "neural")
 
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 	plots_dir.mkdir(parents=True, exist_ok=True)
@@ -252,11 +262,11 @@ def _save_neural_outputs(root: Path, neural_output: dict) -> dict[str, Path]:
 	return output_paths
 
 # La funzione per salvare i risultati del confronto tra le famiglie di modelli (statistico, ML, neurale) organizza i risultati in cartelle separate per metrics e artifacts, salva i DataFrame e i file JSON nei percorsi definiti e restituisce un dizionario con i nomi degli output e i rispettivi percorsi.
-def _save_comparison_outputs(root: Path, comparison_output: dict) -> dict[str, Path]:
+def _save_comparison_outputs(series_key: str, comparison_output: dict) -> dict[str, Path]:
 	"""Persist cross-family comparison artifacts."""
 
-	metrics_dir = root / "Results" / "metrics" / "comparison"
-	artifacts_dir = root / "Results" / "artifacts" / "comparison"
+	metrics_dir = get_results_subdir(series_key, "metrics", "comparison")
+	artifacts_dir = get_results_subdir(series_key, "artifacts", "comparison")
 
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 	artifacts_dir.mkdir(parents=True, exist_ok=True)
@@ -276,10 +286,10 @@ def _save_comparison_outputs(root: Path, comparison_output: dict) -> dict[str, P
 	return output_paths
 
 # La funzione per salvare i risultati della valutazione inferenziale (test di Diebold-Mariano) organizza i risultati in una cartella metrics/inferential, salva il DataFrame con i risultati del test e restituisce un dizionario con i nomi degli output e i rispettivi percorsi.
-def _save_inferential_outputs(root: Path, inferential_df: pd.DataFrame) -> dict[str, Path]:
+def _save_inferential_outputs(series_key: str, inferential_df: pd.DataFrame) -> dict[str, Path]:
 	"""Persist inferential comparison artifacts."""
 
-	metrics_dir = root / "Results" / "metrics" / "inferential"
+	metrics_dir = get_results_subdir(series_key, "metrics", "inferential")
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 
 	output_paths = {
@@ -290,10 +300,10 @@ def _save_inferential_outputs(root: Path, inferential_df: pd.DataFrame) -> dict[
 	return output_paths
 
 # La funzione per salvare i risultati della valutazione prescriptive organizza i risultati in una cartella metrics/prescriptive, salva il DataFrame con gli scenari prescriptivi e restituisce un dizionario con i nomi degli output e i rispettivi percorsi.
-def _save_prescriptive_outputs(root: Path, prescriptive_df: pd.DataFrame) -> dict[str, Path]:
+def _save_prescriptive_outputs(series_key: str, prescriptive_df: pd.DataFrame) -> dict[str, Path]:
 	"""Persist prescriptive analytics artifacts."""
 
-	metrics_dir = root / "Results" / "metrics" / "prescriptive"
+	metrics_dir = get_results_subdir(series_key, "metrics", "prescriptive")
 	metrics_dir.mkdir(parents=True, exist_ok=True)
 
 	output_paths = {
@@ -305,23 +315,29 @@ def _save_prescriptive_outputs(root: Path, prescriptive_df: pd.DataFrame) -> dic
 
 # La funzione main() esegue l'intera pipeline end-to-end, orchestrando i vari step (analisi descrittiva, preprocessing, modellazione statistica, ML e neurale, confronto e valutazione)
 # e salvando i risultati in modo organizzato.
-def main() -> None:
+def main(series_key: str = TARGET_SERIES_KEY) -> None:
 	"""Run the currently implemented pipeline steps end-to-end."""
 
-	# Definizione dei percorsi principali: il percorso del dataset originale e le cartelle per salvare i risultati di ogni step della pipeline (metrics, plots, artifacts).
-	root = Path(__file__).resolve().parent
-	dataset_path = root / "Datasets" / "Tavola_1.14.csv"
+	# Definizione della serie attiva e dei percorsi dedicati ai suoi output.
+	series_cfg = get_series_config(series_key)
+	series_output_name = get_series_output_name(series_key)
+	dataset_path = series_cfg.dataset_path
+	results_root = get_results_root(series_key)
+
+	print(f"Running pipeline for series: {series_key}")
+	print(f"Series output name: {series_output_name}")
+	print(f"Series output root: {results_root}")
 
 	# Step 1 - descriptive analysis.
 	desc_paths = DescriptivePaths(
 		dataset_path=dataset_path,
-		results_metrics_dir=root / "Results" / "metrics" / "descriptive",
-		results_plots_dir=root / "Results" / "plots" / "descriptive",
+		results_metrics_dir=get_results_subdir(series_key, "metrics", "descriptive"),
+		results_plots_dir=get_results_subdir(series_key, "plots", "descriptive"),
 	)
  	# La funzione run_descriptive_analysis esegue l'analisi descrittiva sui dati, 
   	# generando statistiche descrittive, visualizzazioni e identificando eventuali pattern o anomalie nella serie temporale target. 
    	# I risultati vengono salvati nei percorsi definiti in desc_paths e restituiti in un dizionario con i nomi degli output e i rispettivi percorsi.
-	descriptive_outputs = run_descriptive_analysis(desc_paths, target=TARGET_SERIES_KEY)
+	descriptive_outputs = run_descriptive_analysis(desc_paths, target=series_key)
 
 	print("Descriptive analysis completed.")
  	#Stampa i percorsi dei risultati dell'analisi descrittiva.
@@ -329,7 +345,7 @@ def main() -> None:
 		print(f"- {name}: {file_path}")
 
 	# Step 2 - preprocessing based on descriptive conclusions.
-	series = load_target_series(dataset_path, target=TARGET_SERIES_KEY)
+	series = load_target_series(dataset_path, target=series_key)
 
 	# La funzione prepare_preprocessing_for_profile esegue il preprocessing dei dati in base al profilo del modello (statistico, ML o neurale).
 	preproc, preproc_output, candidate_df, selected_cfg = prepare_preprocessing_for_profile(
@@ -339,7 +355,7 @@ def main() -> None:
 	)
 	# Il preprocessing include l'applicazione di trasformazioni (log, differenziazione, scaling) e l'esecuzione di test statistici (ADF, KPSS, Shapiro-Wilk) per valutare la stazionarietà e la normalità dei dati.
 	preproc_outputs = _save_preprocessing_outputs(
-		root,
+		series_key,
 		preproc,
 		preproc_output,
 		candidate_df,
@@ -369,7 +385,7 @@ def main() -> None:
 		diff_order=selected_cfg.transform.diff_order,
 	)
 	stat_output = stat_runner.run()
-	stat_paths = _save_statistical_outputs(root, stat_output)
+	stat_paths = _save_statistical_outputs(series_key, stat_output)
 
 	print(f"Statistical Step completed. Winner: {stat_output['winner']}")
 	for name, file_path in stat_paths.items():
@@ -401,7 +417,7 @@ def main() -> None:
 		diff_order=selected_cfg.transform.diff_order,
 	)
 	ml_output = ml_runner.run()
-	ml_paths = _save_ml_outputs(root, ml_output)
+	ml_paths = _save_ml_outputs(series_key, ml_output)
 
 	print(f"Step 4 ML completed. Winner: {ml_output['winner']}")
 	for name, file_path in ml_paths.items():
@@ -424,7 +440,7 @@ def main() -> None:
 		preprocessing_config=neural_selected_cfg,
 	)
 	neural_output = neural_runner.run()
-	neural_paths = _save_neural_outputs(root, neural_output)
+	neural_paths = _save_neural_outputs(series_key, neural_output)
 
 	print(f"Step 5 Neural completed. Winner: {neural_output['winner']}")
 	for name, file_path in neural_paths.items():
@@ -434,7 +450,7 @@ def main() -> None:
 	# La funzione build_cross_family_comparison confronta le performance dei modelli statistici, ML e neurali, identificando i vincitori di ogni famiglia e il vincitore globale. 
  	# Restituisce un dizionario con i risultati del confronto.
 	comparison_output = build_cross_family_comparison(stat_output, ml_output, neural_output)
-	comparison_paths = _save_comparison_outputs(root, comparison_output)
+	comparison_paths = _save_comparison_outputs(series_key, comparison_output)
 
 	print(f"Cross-family comparison completed. Global winner: {comparison_output['global_winner']['family']}::{comparison_output['global_winner']['model']}")
 	for name, file_path in comparison_paths.items():
@@ -443,7 +459,7 @@ def main() -> None:
 	# Step 7 - inferential evaluation and prescriptive analytics.
 	# La funzione build_diebold_mariano_table costruisce una tabella con i risultati del test di Diebold-Mariano, che confronta le previsioni dei modelli e valuta se le differenze sono statisticamente significative.
 	inferential_df = build_diebold_mariano_table(comparison_output["winner_forecasts"])
-	inferential_paths = _save_inferential_outputs(root, inferential_df)
+	inferential_paths = _save_inferential_outputs(series_key, inferential_df)
 
 	print("Inferential statistics completed.")
 	for name, file_path in inferential_paths.items():
@@ -455,7 +471,7 @@ def main() -> None:
 		comparison_output["winner_forecasts"],
 		series,
 	)
-	prescriptive_paths = _save_prescriptive_outputs(root, prescriptive_df)
+	prescriptive_paths = _save_prescriptive_outputs(series_key, prescriptive_df)
 
 	print("Prescriptive analytics completed.")
 	for name, file_path in prescriptive_paths.items():
@@ -463,5 +479,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-	main()
+	parser = argparse.ArgumentParser(description="Run the forecasting pipeline for a configured series.")
+	parser.add_argument("--series", default=TARGET_SERIES_KEY, help="Series key configured in config.py")
+	args = parser.parse_args()
+	main(series_key=args.series)
 

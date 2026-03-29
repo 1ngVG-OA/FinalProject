@@ -6,19 +6,27 @@ allenamento SARIMA e salvataggio completo di metriche/artifact/plot.
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 import sys
 
 import pandas as pd
 
+from config import (
+    DEFAULT_SERIES_KEY,
+    get_processed_root,
+    get_results_subdir,
+    get_series_config,
+)
+
 ROOT = Path(__file__).resolve().parents[4]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-TARGET_SERIES_KEY = "production_total"
+TARGET_SERIES_KEY = DEFAULT_SERIES_KEY
 
 
-def run_baseline() -> None:
+def run_baseline(series_key: str = TARGET_SERIES_KEY) -> None:
     # ------------------------------------------------------------------
     # Import locali e caricamento serie target
     # ------------------------------------------------------------------
@@ -28,8 +36,9 @@ def run_baseline() -> None:
     from Project.preprocessing import PreprocessingConfig, prepare_preprocessing_for_profile, save_selected_preprocessing_config
     from Project.preprocessing.descriptive_analysis import load_target_series
 
-    dataset_path = ROOT / "Datasets" / "Tavola_1.14.csv"
-    series = load_target_series(dataset_path, target=TARGET_SERIES_KEY)
+    series_cfg = get_series_config(series_key)
+    dataset_path = series_cfg.dataset_path
+    series = load_target_series(dataset_path, target=series_key)
 
     _, preproc_output, candidate_df, selected_cfg = prepare_preprocessing_for_profile(
         series=series,
@@ -56,25 +65,28 @@ def run_baseline() -> None:
     output = runner.run()
 
     # ------------------------------------------------------------------
-    # Persistenza risultati su Results/metrics, Results/artifacts e plot
+    # Persistenza risultati nella cartella serie-aware sotto Results/<SerieOutputName>/...
     # ------------------------------------------------------------------
 
-    metrics_dir = ROOT / "Results" / "metrics"
-    artifacts_dir = ROOT / "Results" / "artifacts"
-    preproc_metrics_dir = metrics_dir / "preprocessing"
-    preproc_artifacts_dir = artifacts_dir / "preprocessing"
-    stat_metrics_dir = metrics_dir / "statistical"
-    stat_artifacts_dir = artifacts_dir / "statistical"
-    plots_dir = ROOT / "Results" / "plots" / "statistical"
+    preproc_metrics_dir = get_results_subdir(series_key, "metrics", "preprocessing")
+    preproc_artifacts_dir = get_results_subdir(series_key, "artifacts", "preprocessing")
+    stat_metrics_dir = get_results_subdir(series_key, "metrics", "statistical")
+    stat_artifacts_dir = get_results_subdir(series_key, "artifacts", "statistical")
+    plots_dir = get_results_subdir(series_key, "plots", "statistical")
+    processed_dir = get_processed_root(series_key)
     preproc_metrics_dir.mkdir(parents=True, exist_ok=True)
     preproc_artifacts_dir.mkdir(parents=True, exist_ok=True)
     stat_metrics_dir.mkdir(parents=True, exist_ok=True)
     stat_artifacts_dir.mkdir(parents=True, exist_ok=True)
     plots_dir.mkdir(parents=True, exist_ok=True)
+    processed_dir.mkdir(parents=True, exist_ok=True)
 
     out_paths = {
         "preproc_candidates": preproc_metrics_dir / "candidate_tests_baseline.csv",
         "preproc_selected_config": preproc_artifacts_dir / "selected_config_baseline.json",
+        "preproc_train": processed_dir / "preprocessed_train_v1.csv",
+        "preproc_val": processed_dir / "preprocessed_val_v1.csv",
+        "preproc_test": processed_dir / "preprocessed_test_v1.csv",
         "sarima_grid": stat_metrics_dir / "sarima_grid_baseline.csv",
         "summary": stat_metrics_dir / "summary_baseline.csv",
         "residual_diagnostics": stat_metrics_dir / "residual_diagnostics_baseline.csv",
@@ -84,6 +96,8 @@ def run_baseline() -> None:
 
     candidate_df.to_csv(out_paths["preproc_candidates"], index=False)
     save_selected_preprocessing_config(selected_cfg, out_paths["preproc_selected_config"])
+    for split_name in ("train", "val", "test"):
+        preproc_output["splits"][split_name].rename("value").reset_index().to_csv(out_paths[f"preproc_{split_name}"], index=False)
     output["sarima_grid"].to_csv(out_paths["sarima_grid"], index=False)
     output["summary"].to_csv(out_paths["summary"], index=False)
     output["residual_diagnostics"].to_csv(out_paths["residual_diagnostics"], index=False)
@@ -101,4 +115,7 @@ def run_baseline() -> None:
 
 
 if __name__ == "__main__":
-    run_baseline()
+    parser = argparse.ArgumentParser(description="Run the statistical baseline for a configured series.")
+    parser.add_argument("--series", default=TARGET_SERIES_KEY, help="Series key configured in config.py")
+    args = parser.parse_args()
+    run_baseline(series_key=args.series)
