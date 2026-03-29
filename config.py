@@ -1,41 +1,29 @@
-"""Central configuration for the forecasting pipeline.
-
-This module defines:
-1) project paths,
-2) reproducibility seed,
-3) dataset-specific settings,
-4) hyperparameter grids for MLP and XGBoost.
-
-Notes
------
-- All paths are resolved from the repository root.
-- `SERIES_CONFIG` controls data loading and split strategy.
-- Hyperparameter grids are consumed by model tuning functions in `Models/`.
-"""
-
+# File di configurazione globale per il progetto di forecasting. 
+# Contiene costanti, percorsi e configurazioni utilizzati in tutto il codice.
 from pathlib import Path
 
+# Directory paths per datasets, results, and plots.
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "Datasets"
 RESULTS_DIR = BASE_DIR / "results"
 PLOTS_DIR = RESULTS_DIR / "plots"
 
-# Global reproducibility seed used across numpy/torch/model training.
+# Seed per la riproducibilità dei risultati, utilizzato in modelli ML e XGBoost.
 SEED = 1234
 
-# Per-series configuration block used by `Mains/utils.py`.
+# Blocco di configurazione per serie temporali utilizzato da `Mains/utils.py`.
 #
-# Field semantics:
-# - csv_path: source dataset path
-# - date_col: datetime column to parse and use as index
-# - value_col: target numeric column
-# - freq: expected temporal frequency (regularization)
-# - split: tuple (cut1, cut2) for train/validation/test slicing
-# - seasonal: whether to enable seasonal statistical model settings
-# - seasonal_period: seasonality period (for example 12 for monthly)
-# - diff_order: differencing order used by auto_arima
+# Significato dei campi:
+# - csv_path: percorso del dataset di origine
+# - date_col: colonna datetime da analizzare e utilizzare come indice
+# - value_col: colonna numerica target
+# - freq: frequenza temporale prevista (regolarizzazione)
+# - split: tuple (cut1, cut2) per suddividere train/validation/test
+# - seasonal: se abilitare le impostazioni del modello statistico stagionale
+# - seasonal_period: periodo di stagionalità (ad esempio 12 per mensile)
+# - diff_order: ordine di differenziazione utilizzato da auto_arima
 SERIES_CONFIG = {
-    # Series defined by ISTAT 
+    # Serie definite da ISTAT 
     "Energy production and consumed": {
         "csv_path": DATA_DIR / "Tavola_1.14.csv",
         "date_col": "date",
@@ -48,7 +36,7 @@ SERIES_CONFIG = {
     }
 }
 
-# Hyperparameter search space for the autoregressive MLP model.
+# Ricerca degli iperparametri per il modello MLP.
 MLP_PARAM_GRID = {
     "look_back": [14, 28],
     "hidden_size": [4, 8],
@@ -58,7 +46,7 @@ MLP_PARAM_GRID = {
     "batch_size": [16, 32],
 }
 
-# Hyperparameter search space for the autoregressive XGBoost model.
+# Ricerca degli iperparametri per il modello autoregressivo XGBoost.
 XGB_PARAM_GRID = {
     "look_back": [14, 28],
     "n_estimators": [30, 80],
@@ -69,5 +57,5 @@ XGB_PARAM_GRID = {
     "seed": [SEED],
 }
 
-# Maximum epochs for MLP fitting loops (with internal early stopping).
+# Numero massimo di epoche per i cicli di fitting dell'MLP (con early stopping interno).
 MLP_EPOCHS = 300

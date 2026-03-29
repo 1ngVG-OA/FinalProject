@@ -1,17 +1,4 @@
-# Automatic configuration utilities for Step 2 preprocessing.
-#
-# This module centralizes how preprocessing settings are chosen and persisted.
-# It supports four core operations:
-#
-# 1. evaluate multiple transformation candidates on the training split,
-# 2. select the best candidate with deterministic ranking rules,
-# 3. save/load the selected configuration as JSON,
-# 4. build and run a preprocessor aligned with the selected configuration.
-#
-# The intent is to keep Step 2 reproducible and avoid ad-hoc manual choices
-# between runs.
-#
-
+# Configurazione e logica per la selezione automatica delle trasformazioni di preprocessing.
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -37,10 +24,10 @@ from Project.preprocessing.time_series_preprocessor import (
     TransformConfig,
 )
 
-# Supported preprocessing profiles by downstream model family.
+# Definizione di un tipo letterale per i profili di preprocessing, che categorizza le trasformazioni candidate in base alla famiglia di modelli target (statistical, ml, neural).
 PreprocessingProfile = Literal["statistical", "ml", "neural"]
 
-# Candidate transformation configurations for statistical models.
+# Trasformazioni candidate per il profilo "statistical", che include combinazioni di log1p, differenziazione e scaling parsimonioso, con un focus sulla stazionarietà.
 STATISTICAL_PREPROCESSING_CANDIDATES: tuple[TransformConfig, ...] = (
     TransformConfig(use_log1p=False, diff_order=0, scale_method="none"),
     TransformConfig(use_log1p=False, diff_order=1, scale_method="none"),
@@ -48,7 +35,7 @@ STATISTICAL_PREPROCESSING_CANDIDATES: tuple[TransformConfig, ...] = (
     TransformConfig(use_log1p=True, diff_order=2, scale_method="none"),
 )
 
-# Candidate transformation configurations for ML models.
+# Trasformazioni candidate per il profilo "ml", che include combinazioni di log1p, differenziazione e scaling più aggressive, con un focus sulla preparazione dei dati per modelli di machine learning.
 ML_PREPROCESSING_CANDIDATES: tuple[TransformConfig, ...] = (
     TransformConfig(use_log1p=False, diff_order=0, scale_method="none"),
     TransformConfig(use_log1p=True, diff_order=0, scale_method="none"),
@@ -57,7 +44,7 @@ ML_PREPROCESSING_CANDIDATES: tuple[TransformConfig, ...] = (
     TransformConfig(use_log1p=True, diff_order=1, scale_method="minmax"),
 )
 
-# Candidate transformation configurations for neural models.
+# Trasformazioni candidate per il profilo "neural", che include combinazioni di log1p, differenziazione e scaling standard o min-max, con un focus sulla preparazione dei dati per modelli neurali.
 NEURAL_PREPROCESSING_CANDIDATES: tuple[TransformConfig, ...] = (
     TransformConfig(use_log1p=False, diff_order=0, scale_method="standard"),
     TransformConfig(use_log1p=True, diff_order=0, scale_method="standard"),
@@ -66,6 +53,7 @@ NEURAL_PREPROCESSING_CANDIDATES: tuple[TransformConfig, ...] = (
     TransformConfig(use_log1p=True, diff_order=0, scale_method="minmax"),
 )
 
+# Mappatura dei profili di preprocessing alle rispettive trasformazioni candidate, che consente di selezionare automaticamente le configurazioni da valutare in base al tipo di modello target.
 PREPROCESSING_CANDIDATES_BY_PROFILE: dict[PreprocessingProfile, tuple[TransformConfig, ...]] = {
     "statistical": STATISTICAL_PREPROCESSING_CANDIDATES,
     "ml": ML_PREPROCESSING_CANDIDATES,
@@ -73,7 +61,7 @@ PREPROCESSING_CANDIDATES_BY_PROFILE: dict[PreprocessingProfile, tuple[TransformC
 }
 
 
-# Point-2 backtest defaults (reduced SARIMA grid + composite score weight).
+# Parametri e configurazioni per il backtest di validazione SARIMA utilizzato come proxy per valutare la stabilità e il bias indotto dalle trasformazioni candidate, con l'obiettivo di identificare potenziali problemi di drift durante l'inversione delle trasformazioni.
 BACKTEST_P_VALUES: tuple[int, ...] = (0, 1)
 BACKTEST_D_VALUES: tuple[int, ...] = (0,)
 BACKTEST_Q_VALUES: tuple[int, ...] = (0, 1)
@@ -81,22 +69,16 @@ BACKTEST_COMPOSITE_LAMBDA: float = 0.5
 BACKTEST_MAXITER: int = 120
 DRIFT_GUARD_MAX_ABS_MBE_ORIG: float = 2000.0
 
-
+# Funzione che penalizza le configurazioni che mostrano un alto bias di previsione (mbe) sulla serie originale durante un backtest SARIMA, escludendole dalla selezione finale per il profilo "statistical" al fine di mitigare potenziali problemi di drift quando si invertono le trasformazioni.
 def _candidate_bias_penalty_orig(
     original_series: pd.Series,
     val_index: pd.Index,
     cfg: TransformConfig,
 ) -> float:
-    """Estimate original-scale abs bias for a zero-forecast baseline.
-
-    The baseline forecast is identically zero in transformed space. This
-    highlights transformation-induced drift during inverse mapping,
-    especially for second differencing.
-    """
+    
     if val_index.empty:
         return float("nan")
-
-    # No inverse mapping available for non-log or unsupported differencing.
+    # La penalizzazione è applicata solo se la trasformazione include log1p e differenziazione, poiché sono le più suscettibili di introdurre bias di drift quando si invertono le trasformazioni su serie non stazionarie o con trend marcati. Se queste condizioni non sono soddisfatte, restituisco NaN per indicare che il calcolo del bias non è applicabile o significativo per quella configurazione.
     if not cfg.use_log1p or cfg.diff_order not in (1, 2):
         return float("nan")
 
@@ -136,14 +118,14 @@ def _candidate_bias_penalty_orig(
 
     return float(abs((aligned["y_pred"] - aligned["y_true"]).mean()))
 
-
+# Esegue un backtest di validazione SARIMA ridotto su una suddivisione train/validation, 
+# valutando le previsioni sulla serie originale per identificare configurazioni candidate che introducono bias di previsione (mbe) elevato.
 def _run_candidate_stat_backtest(
     train: pd.Series,
     validation: pd.Series,
     original_series: pd.Series,
     cfg: TransformConfig,
 ) -> dict[str, object]:
-    """Run a reduced-grid SARIMA validation backtest for one candidate."""
 
     best_row: dict[str, object] | None = None
 
@@ -153,7 +135,7 @@ def _run_candidate_stat_backtest(
         diff_order=cfg.diff_order,
         val_start=validation.index.min(),
     )
-
+    
     for p in BACKTEST_P_VALUES:
         for d in BACKTEST_D_VALUES:
             for q in BACKTEST_Q_VALUES:
@@ -248,37 +230,18 @@ def _run_candidate_stat_backtest(
 
     return best_row
 
-# Backward-compatible default: same profile used previously.
+# Il set di trasformazioni candidate di default utilizzato quando non si specifica un profilo, che attualmente coincide con il profilo "statistical" 
+# per garantire un focus sulla stazionarietà e la parsimonia delle trasformazioni.
 DEFAULT_PREPROCESSING_CANDIDATES = STATISTICAL_PREPROCESSING_CANDIDATES
 
-
+# Funzione che restituisce le configurazioni di trasformazione candidate per un dato profilo di preprocessing, 
+# consentendo di selezionare automaticamente le trasformazioni da valutare in base alla famiglia di modelli target.
 def get_preprocessing_candidates(profile: PreprocessingProfile) -> tuple[TransformConfig, ...]:
-    """Return candidate transformations for a model-family profile."""
-
+    
     return PREPROCESSING_CANDIDATES_BY_PROFILE[profile]
 
+# Funzione che seleziona la migliore configurazione di trasformazione da un DataFrame di candidate, ordinando in base a criteri di stazionarietà e parsimonia.
 def select_best_transform_config(candidate_df: pd.DataFrame) -> TransformConfig:
-    #Select the best transformation candidate from evaluation results.
-    #
-    # The ranking is deterministic and prioritizes stationary training series.
-    # Ranking criteria (in order):
-    #
-    # 1. both_stationary: True when both ADF and KPSS indicate stationarity,
-    # 2. higher KPSS p-value,
-    # 3. lower differencing order,
-    # 4. lower ADF p-value,
-    # 5. prefer log1p when all previous criteria tie.
-    #
-    #Args:
-    #     candidate_df: DataFrame returned by evaluate_candidates containing at
-    #         least transformation fields and stationarity-test columns.
-    #
-    #Returns:
-    #    The selected TransformConfig.
-    #
-    #Raises:
-    #    ValueError: If candidate_df does not include required columns.
-    #
 
     required_cols = {
         "use_log1p",
@@ -318,12 +281,11 @@ def select_best_transform_config(candidate_df: pd.DataFrame) -> TransformConfig:
         scale_method=str(best["scale_method"]),
     )
 
-
+# Funzione che seleziona la migliore configurazione di trasformazione da un DataFrame di candidate, ordinando in base a criteri specifici per il profilo (statistical, ml, neural).
 def select_best_transform_config_for_profile(
     candidate_df: pd.DataFrame,
     profile: PreprocessingProfile,
 ) -> TransformConfig:
-    """Select the best transform using profile-specific ranking criteria."""
 
     required_cols = {
         "use_log1p",
@@ -362,10 +324,10 @@ def select_best_transform_config_for_profile(
     )
     ranked["drift_guard_rank"] = ranked["drift_guard_excluded"].astype(int)
 
-    # Profile-specific ordering priorities:
-    # - statistical: maximize stationarity and keep transformations parsimonious.
-    # - ml: prioritize stable transforms with low differencing and optional scaling.
-    # - neural: prioritize scaled pipelines, then stationarity and smooth transforms.
+    # Priorità di ordinamento per la selezione della configurazione migliore, che varia in base al profilo:
+    # - statistical: priorità a configurazioni che superano il drift guard, poi stazionarietà, poi parsimonia (diff_order), poi p-value dei test di stazionarietà, poi penalizzazione del bias di previsione sulla serie originale, infine uso di log1p.
+    # - ml: priorità a configurazioni stazionarie, poi parsimonia (diff_order), poi uso di scaling, poi p-value dei test di stazionarietà, infine uso di log1p.
+    # - neural: priorità a configurazioni che usano scaling, poi stazionarietà, poi parsimonia (diff_order), poi p-value dei test di stazionarietà, infine uso di log1p.
     if profile == "statistical":
         ranked = ranked.sort_values(
             by=[
@@ -417,17 +379,8 @@ def select_best_transform_config_for_profile(
         scale_method=str(best["scale_method"]),
     )
 
+# Funzione che salva la configurazione di preprocessing selezionata in un file JSON, consentendo di conservare un record della configurazione utilizzata per il preprocessing e facilitando la riproducibilità.
 def save_selected_preprocessing_config(config: PreprocessingConfig, output_path: Path) -> Path:
-    # Persist a preprocessing configuration to JSON.
-    #
-    # Args:
-    #     config: PreprocessingConfig to serialize.
-    #     output_path: Destination JSON path. Parent directories are created
-    #         automatically if missing.
-    #
-    # Returns:
-    #     The resolved output path used for writing.
-    #
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -436,22 +389,8 @@ def save_selected_preprocessing_config(config: PreprocessingConfig, output_path:
     output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return output_path
 
+# Funzione che carica una configurazione di preprocessing da un file JSON, consentendo di ripristinare una configurazione precedentemente salvata e utilizzarla per il preprocessing.
 def load_selected_preprocessing_config(input_path: Path) -> PreprocessingConfig:
-    # Load a preprocessing configuration from a JSON artifact.
-    #
-    # Args:
-    #     input_path: Path to a JSON file previously produced by
-    #         save_selected_preprocessing_config.
-    #
-    # Returns:
-    #     A reconstructed PreprocessingConfig instance.
-    #
-    # Notes:
-    #     - The JSON file is expected to contain at least the keys for split,
-    #       transform, and outliers.
-    #     - Missing optional keys fall back to safe defaults:
-    #       run_shapiro=False and shapiro_max_n=5000.
-    #
 
     payload = json.loads(Path(input_path).read_text(encoding="utf-8"))
     split_cfg = payload.get("split", {})
@@ -466,33 +405,19 @@ def load_selected_preprocessing_config(input_path: Path) -> PreprocessingConfig:
         shapiro_max_n=int(payload.get("shapiro_max_n", 5000)),
     )
 
+# Funzione che costruisce ed esegue il preprocessing utilizzando la selezione automatica dei candidati.
+#
+# Workflow:
+#     1) valutare le configurazioni di trasformazione candidate,
+#     2) selezionare la migliore trasformazione,
+#     3) integrarla in una configurazione finale di PreprocessingConfig,
+#     4) eseguire preprocess() con la configurazione selezionata.
 def prepare_preprocessing_from_candidates(
     series: pd.Series,
     base_config: PreprocessingConfig | None = None,
     candidate_cfgs: Iterable[TransformConfig] = DEFAULT_PREPROCESSING_CANDIDATES,
 ) -> tuple[TimeSeriesPreprocessor, dict, pd.DataFrame, PreprocessingConfig]:
-    # Build and run preprocessing using automatic candidate selection.
-    #
-    # Workflow:
-    #     1) evaluate candidate transform configurations,
-    #     2) select best transform,
-    #     3) merge it into a final PreprocessingConfig,
-    #     4) run preprocess() with the selected configuration.
-    #
-    # Args:
-    #     series: Raw univariate time series to preprocess.
-    #     base_config: Base configuration carrying split/outlier/test settings.
-    #         If None, a default PreprocessingConfig(run_shapiro=True) is used.
-    #     candidate_cfgs: Iterable of TransformConfig candidates to evaluate.
-    #
-    # Returns:
-    #     A 4-tuple:
-    #         - preproc: configured TimeSeriesPreprocessor,
-    #         - preproc_output: output dictionary returned by preprocess(),
-    #         - candidate_df: candidate evaluation table,
-    #         - selected_cfg: final selected PreprocessingConfig.
-    #
-
+ 
     if base_config is None:
         base_config = PreprocessingConfig(run_shapiro=True)
 
@@ -513,13 +438,18 @@ def prepare_preprocessing_from_candidates(
 
     return preproc, preproc_output, candidate_df, selected_cfg
 
-
+# Funzione che costruisce ed esegue il preprocessing utilizzando la selezione automatica dei candidati specifica per profilo, integrando metriche di bias di previsione e backtest di validazione per identificare configurazioni che potrebbero introdurre problemi di drift.
+# Workflow:
+#     1) valutare le configurazioni di trasformazione candidate per il profilo specificato,
+#     2) arricchire la valutazione con metriche di bias di previsione su una baseline zero-forecast e con un backtest di validazione SARIMA sulla serie originale,
+#     3) selezionare la migliore trasformazione utilizzando criteri specifici per il profilo (statistical, ml, neural) che tengono conto di stazionarietà, parsimonia, uso di scaling e penalizzazione del bias di previsione,
+#     4) integrarla in una configurazione finale di PreprocessingConfig,
+#     5) eseguire preprocess() con la configurazione selezionata.
 def prepare_preprocessing_for_profile(
     series: pd.Series,
     profile: PreprocessingProfile,
     base_config: PreprocessingConfig | None = None,
 ) -> tuple[TimeSeriesPreprocessor, dict, pd.DataFrame, PreprocessingConfig]:
-    """Build and run preprocessing using candidates tied to a model profile."""
 
     if base_config is None:
         base_config = PreprocessingConfig(run_shapiro=True)
@@ -528,7 +458,7 @@ def prepare_preprocessing_for_profile(
     candidate_cfgs = get_preprocessing_candidates(profile)
     candidate_df = selector.evaluate_candidates(candidate_cfgs)
 
-    # Add bias/drift proxy metrics from a zero-forecast baseline on validation.
+    # Point 1: calcolo di metriche di bias di previsione per ciascuna configurazione candidata, utilizzando una baseline zero-forecast sulla suddivisione di validazione, sia sulla serie trasformata che sulla serie originale (in quest'ultimo caso solo per configurazioni che includono log1p e differenziazione), al fine di identificare configurazioni che introducono un bias elevato e potrebbero causare problemi di drift quando si invertono le trasformazioni.
     bias_metrics = []
     backtest_metrics = []
     for cfg in candidate_cfgs:
@@ -557,7 +487,7 @@ def prepare_preprocessing_for_profile(
             }
         )
 
-        # Point 2: mini empirical backtest on statistical profile only.
+        # Point 2: esecuzione di un backtest di validazione SARIMA ridotto sulla suddivisione train/validation, valutando le previsioni sulla serie originale per identificare configurazioni candidate che introducono bias di previsione (mbe) elevato, al fine di escludere configurazioni che potrebbero causare problemi di drift quando si invertono le trasformazioni su serie non stazionarie o con trend marcati.
         if profile == "statistical":
             backtest_row = _run_candidate_stat_backtest(
                 train=tmp_out["splits"]["train"],

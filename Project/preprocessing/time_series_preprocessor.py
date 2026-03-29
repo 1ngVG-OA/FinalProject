@@ -1,13 +1,6 @@
-"""Reusable preprocessing class for univariate time series forecasting.
-
-The class implements the Step 2 pipeline discussed for this project:
-- temporal split without leakage,
-- trend/seasonality diagnostics,
-- local outlier flags based on YoY variations,
-- deterministic transformations (log, power, differencing),
-- optional scaling (standardization/normalization),
-- statistical tests (ADF, KPSS, optional Shapiro-Wilk).
-"""
+# Seconda fase del progetto: implementazione del preprocessing per serie temporali.
+# Trasformazione, scaling, rilevamento outlier e test di stazionarietà, in modo da preparare i dati per la modellazione predittiva. 
+# é progettato per essere flessibile e configurabile, consentendo di valutare diverse combinazioni di trasformazioni e scalature in modo leakage-safe.
 
 from __future__ import annotations
 
@@ -27,7 +20,6 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
 @dataclass(frozen=True)
 class SplitConfig:
-    """Temporal split configuration expressed as proportions."""
 
     train_ratio: float = 0.7
     val_ratio: float = 0.15
@@ -35,7 +27,6 @@ class SplitConfig:
 
 @dataclass(frozen=True)
 class TransformConfig:
-    """Transformation configuration for the preprocessing pipeline."""
 
     use_log1p: bool = False
     power_exponent: float | None = None
@@ -45,26 +36,23 @@ class TransformConfig:
 
 @dataclass(frozen=True)
 class OutlierConfig:
-    """Configuration for local outlier detection on YoY changes."""
 
-    window: int = 11
-    threshold: float = 3.5
+    window: int = 11 # Deve essere dispari per avere una finestra centrata simmetrica, e sufficientemente ampia per stimare una baseline robusta.
+    threshold: float = 3.5 # Soglia per identificare outlier locali basati sui cambiamenti YoY, in termini di deviazioni dalla baseline locale (rolling median), con un approccio robusto che utilizza MAD e fallback alla deviazione standard quando MAD è troppo piccolo.
 
 
 @dataclass(frozen=True)
 class PreprocessingConfig:
-    """Global preprocessing configuration container."""
 
     split: SplitConfig = SplitConfig()
     transform: TransformConfig = TransformConfig()
     outliers: OutlierConfig = OutlierConfig()
-    run_shapiro: bool = False
-    shapiro_max_n: int = 5000
+    run_shapiro: bool = False # Opzione per eseguire il test di normalità Shapiro-Wilk sui residui della serie trasformata, utile per valutare la normalità dei dati dopo le trasformazioni e confrontarla con i risultati dei test di stazionarietà.
+    shapiro_max_n: int = 5000 # Numero massimo di campioni da utilizzare per il test di Shapiro-Wilk, che può essere computazionalmente costoso su serie molto lunghe, quindi si limita a un campione rappresentativo dei dati trasformati.
 
 
 class TimeSeriesPreprocessor:
-    """Preprocess a univariate time series in a leakage-safe way."""
-
+    # Preprocessing class per serie temporali, che include validazione, trasformazioni deterministiche, scaling, rilevamento outlier locali e test di stazionarietà.
     def __init__(self, series: pd.Series, config: PreprocessingConfig | None = None) -> None:
         if config is None:
             config = PreprocessingConfig()
@@ -73,9 +61,9 @@ class TimeSeriesPreprocessor:
         self.series = self._validate_series(series)
         self._scaler: StandardScaler | MinMaxScaler | None = None
 
+    # Validazione della serie in ingresso, assicurandosi che sia una pandas Series con valori numerici validi, ordinati temporalmente e senza valori NaN. Viene restituita una copia pulita della serie pronta per le trasformazioni successive.
     @staticmethod
     def _validate_series(series: pd.Series) -> pd.Series:
-        """Validate and normalize input series format."""
 
         if not isinstance(series, pd.Series):
             raise TypeError("series must be a pandas Series")
@@ -92,8 +80,8 @@ class TimeSeriesPreprocessor:
 
         return x.astype(float)
 
+    # Suddivide la serie in train/validation/test in base alla configurazione.
     def split_series(self, series: pd.Series | None = None) -> dict[str, pd.Series]:
-        """Split a series in train/validation/test using temporal order."""
 
         x = self.series if series is None else self._validate_series(series)
         n = len(x)
@@ -110,22 +98,23 @@ class TimeSeriesPreprocessor:
             "test": x.iloc[val_end:].copy(),
         }
 
+    # Trasformazione log1p che gestisce valori vicino a zero e negativi, utile per stabilizzare la varianza in serie con questi tipi di valori, e configurabile tramite use_log1p.
     @staticmethod
     def _apply_log1p(series: pd.Series) -> pd.Series:
-        """Apply log1p transform only when valid."""
 
         if (series <= -1.0).any():
             raise ValueError("log1p requires all values > -1")
         return np.log1p(series)
 
+    # Trasformazione di potenza che preserva il segno, utile per stabilizzare la varianza in serie con valori negativi o vicino a zero, configurabile tramite power_exponent.
     @staticmethod
     def _apply_power(series: pd.Series, exponent: float) -> pd.Series:
-        """Apply deterministic power transform preserving sign."""
 
-        return np.sign(series) * (np.abs(series) ** exponent)
+        return np.sign(series) * (np.abs(series) ** exponent) 
 
+    # Trasformazioni deterministiche applicate alla serie, come logaritmo, potenza e differenziazione, in modo da preparare i dati per i test di stazionarietà e la modellazione predittiva. 
+    # Le trasformazioni vengono applicate in un ordine specifico (log1p -> power -> differencing) e sono configurabili tramite TransformConfig.  
     def apply_deterministic_transforms(self, series: pd.Series) -> pd.Series:
-        """Apply non-fitted transforms (log, power, differencing)."""
 
         x = series.copy()
         tcfg = self.config.transform
@@ -137,14 +126,15 @@ class TimeSeriesPreprocessor:
             x = self._apply_power(x, tcfg.power_exponent)
 
         if tcfg.diff_order > 0:
-            # Apply differencing iteratively (order d), not lag-d differencing.
+            # La differenziazione viene applicata iterativamente in base all'ordine specificato, con l'obiettivo di rimuovere trend e rendere la serie più stazionaria, se necessario. 
             for _ in range(tcfg.diff_order):
                 x = x.diff()
 
         return x.dropna()
 
+    # Fitting dello scaler sui dati di train, in modo da evitare data leakage. 
+    # Il metodo di scaling è configurabile tramite TransformConfig e può essere standardizzazione, min-max scaling o nessuno.
     def _fit_scaler(self, train: pd.Series) -> None:
-        """Fit scaler on train split only to prevent leakage."""
 
         method = self.config.transform.scale_method.lower()
 
@@ -160,8 +150,9 @@ class TimeSeriesPreprocessor:
 
         self._scaler.fit(train.to_numpy().reshape(-1, 1))
 
+    # Applicazione dello scaler alla serie, utilizzando i parametri appresi sul train. 
+    # Se lo scaler è None, restituisce la serie originale senza modifiche.
     def _scale_series(self, series: pd.Series) -> pd.Series:
-        """Transform series with fitted scaler preserving index/name."""
 
         if self._scaler is None:
             return series
@@ -169,13 +160,13 @@ class TimeSeriesPreprocessor:
         arr = self._scaler.transform(series.to_numpy().reshape(-1, 1)).ravel()
         return pd.Series(arr, index=series.index, name=series.name)
 
+    # Rilevamento degli outlier locali basati sui cambiamenti YoY, utilizzando un approccio robusto che combina MAD e deviazione standard come fallback, e restituendo un DataFrame con i dettagli dei cambiamenti YoY, la baseline locale e i flag di outlier.
     @staticmethod
     def local_outlier_flags(
         series: pd.Series,
         window: int = 11,
         threshold: float = 3.5,
     ) -> pd.DataFrame:
-        """Detect local outliers on YoY changes with MAD + std fallback."""
 
         x = pd.to_numeric(series, errors="coerce").dropna().astype(float)
         yoy = x.diff().dropna()
@@ -206,9 +197,9 @@ class TimeSeriesPreprocessor:
             }
         )
 
+    # Test di stazionarietà ADF e KPSS sulla serie trasformata, restituendo un dizionario con i risultati dei test, inclusi statistiche, p-value, lags utilizzati e flag di stazionarietà a livello di significatività del 5%.
     @staticmethod
     def run_stationarity_tests(series: pd.Series, run_shapiro: bool = False, shapiro_max_n: int = 5000) -> dict[str, Any]:
-        """Run ADF, KPSS and optional Shapiro-Wilk tests on a series."""
 
         x = pd.to_numeric(series, errors="coerce").dropna().astype(float)
         if len(x) < 12:
@@ -253,8 +244,9 @@ class TimeSeriesPreprocessor:
 
         return result
 
+    # Valutazione di diverse combinazioni di trasformazioni e scalature configurate tramite TransformConfig, 
+    # eseguendo il workflow completo di preprocessing per ciascuna combinazione e raccogliendo i risultati dei test di stazionarietà in un DataFrame per confronto.
     def evaluate_candidates(self, candidates: Iterable[TransformConfig]) -> pd.DataFrame:
-        """Evaluate transformation candidates with stationarity tests on train."""
 
         rows: list[dict[str, Any]] = []
 
@@ -284,8 +276,9 @@ class TimeSeriesPreprocessor:
 
         return pd.DataFrame(rows)
 
+    # Esegue l'intero workflow di preprocessing, applicando le trasformazioni configurate, suddividendo la serie in train/val/test, scalando i dati in modo leakage-safe,
+    # eseguendo i test di stazionarietà e rilevando gli outlier locali, restituendo un dizionario con tutti gli artefatti generati durante il processo.
     def preprocess(self) -> dict[str, Any]:
-        """Run the full preprocessing workflow and return all artifacts."""
 
         transformed_full = self.apply_deterministic_transforms(self.series)
         splits = self.split_series(transformed_full)
@@ -330,8 +323,8 @@ class TimeSeriesPreprocessor:
             "local_outliers": outlier_df,
         }
 
+    # Salvataggio dei grafici di preprocessing, inclusi raw vs transformed, visualizzazione dei split, ACF/PACF e outlier locali, in un formato configurabile e con percorsi di output specificati.
     def save_preprocessing_plots(self, preproc_output: dict[str, Any], out_dir: Path) -> dict[str, Path]:
-        """Generate and save core preprocessing plots."""
 
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -348,7 +341,7 @@ class TimeSeriesPreprocessor:
             "preproc_plot_local_outliers": out_dir / "local_outliers.png",
         }
 
-        # 1) Raw vs transformed series.
+        # 1) Serie raw vs trasformata.
         fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=False)
         axes[0].plot(raw.index, raw.values, color="tab:blue", linewidth=2)
         axes[0].set_title("Raw Series")
@@ -365,7 +358,7 @@ class TimeSeriesPreprocessor:
         fig.savefig(plot_paths["preproc_plot_raw_vs_transformed"], dpi=150)
         plt.close(fig)
 
-        # 2) Train/Val/Test split visualization.
+        # 2) Visualizzazione dei split Train/Val/Test.
         fig, ax = plt.subplots(figsize=(12, 5))
         ax.plot(splits["train"].index, splits["train"].values, label="train", color="tab:blue")
         ax.plot(splits["val"].index, splits["val"].values, label="val", color="tab:green")
@@ -379,7 +372,7 @@ class TimeSeriesPreprocessor:
         fig.savefig(plot_paths["preproc_plot_split_view"], dpi=150)
         plt.close(fig)
 
-        # 3) ACF/PACF on transformed train split.
+        # 3) ACF/PACF sulla suddivisione train trasformata.
         train_series = splits["train"].dropna()
         n_lags = max(5, min(20, int(len(train_series) / 3)))
         fig, axes = plt.subplots(1, 2, figsize=(12, 4))
@@ -391,7 +384,7 @@ class TimeSeriesPreprocessor:
         fig.savefig(plot_paths["preproc_plot_acf_pacf"], dpi=150)
         plt.close(fig)
 
-        # 4) Local outliers over YoY changes.
+        # 4) Outlier locali sulle variazioni YoY.
         fig, ax = plt.subplots(figsize=(12, 5))
         ax.plot(outliers["year"], outliers["yoy_change"], color="tab:blue", linewidth=1.8, label="YoY change")
         ax.plot(
