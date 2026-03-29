@@ -1,9 +1,4 @@
-"""Project entry point.
-
-Implemented steps:
-1) Descriptive analysis for Tavola_1.14.
-2) Time-series preprocessing (split, transforms, stationarity tests, local outliers).
-"""
+# Main del progetto: esegue l'intera pipeline end-to-end, orchestrando i vari step e salvando i risultati in modo organizzato.
 
 from __future__ import annotations
 
@@ -11,50 +6,58 @@ from pathlib import Path
 
 import pandas as pd
 
+#Import del modulo di valutazione, che contiene funzioni per confrontare le performance dei modelli e generare tabelle di confronto e scenari prescriptivi.
 from Project.evaluation import (
-	build_cross_family_comparison,
-	build_diebold_mariano_table,
-	build_prescriptive_table,
+	build_cross_family_comparison, # Funzione per costruire una tabella di confronto tra le performance dei modelli statistici, ML e neurali.
+	build_diebold_mariano_table,   # Funzione per costruire una tabella con i risultati del test di Diebold-Mariano, che confronta le previsioni dei modelli e valuta se le differenze sono statisticamente significative.
+	build_prescriptive_table,      # Funzione per costruire una tabella con scenari prescriptivi basati sulle previsioni dei modelli.
 )
+
+#Import dei moduli di preprocessing e modellazione, che contengono classi e funzioni per eseguire il preprocessing dei dati, addestrare i modelli statistici, ML e neurali,
+# e salvare i risultati.
 from Project.preprocessing import (
-	PreprocessingConfig,
-	TimeSeriesPreprocessor,
-	prepare_preprocessing_for_profile,
-	save_selected_preprocessing_config,
+	PreprocessingConfig, 					# Classe di configurazione per il preprocessing, che definisce le trasformazioni da applicare ai dati e i test da eseguire.
+	TimeSeriesPreprocessor,					# Classe principale per eseguire il preprocessing dei dati, che applica le trasformazioni e i test definiti nella configurazione.
+	prepare_preprocessing_for_profile, 		# Funzione per preparare il preprocessing in base al profilo del modello (statistico, ML o neurale). Esegue e restituisce i risultati e la configurazione selezionata.
+	save_selected_preprocessing_config,		# Funzione per salvare la configurazione di preprocessing selezionata in un file JSON.
 )
+
+#Import dei moduli di modellazione, che contengono classi e funzioni per addestrare i modelli statistici, ML e neurali, eseguire le previsioni e salvare i risultati.
 from Project.models.statistical import (
-	StatisticalModelRunner,
-	StatisticalStepConfig,
-	infer_seasonal_period_from_index,
+	StatisticalModelRunner,  			# Classe per eseguire l'addestramento e la previsione dei modelli statistici.
+	StatisticalStepConfig,   			# Classe di configurazione per i modelli statistici, che definisce i parametri e le impostazioni del modello.
+	infer_seasonal_period_from_index,   # Funzione per inferire il periodo stagionale dai dati temporali.
 )
 from Project.models.ml import (
-	MLModelRunner,
-	MLStepConfig,
-	save_ml_plots,
+	MLModelRunner,  # Classe per eseguire l'addestramento e la previsione dei modelli di machine learning.
+	MLStepConfig,   # Classe di configurazione per i modelli di machine learning, che definisce i parametri e le impostazioni del modello.
+	save_ml_plots,  # Funzione per salvare i grafici dei modelli di machine learning.
+
 )
 from Project.models.neural import (
-	NeuralModelRunner,
-	build_compact_neural_config,
-	save_neural_plots,
+	NeuralModelRunner,  			# Classe per eseguire l'addestramento e la previsione dei modelli neurali.
+	build_compact_neural_config,    # Funzione per costruire una configurazione compatta per i modelli neurali.
+	save_neural_plots,  			# Funzione per salvare i grafici dei modelli neurali.
 )
+
+#Import del modulo di analisi descrittiva, che contiene funzioni per eseguire l'analisi esplorativa dei dati, generare statistiche descrittive e visualizzazioni.
 from Project.preprocessing.descriptive_analysis import (
-	DescriptivePaths,
-	load_target_series,
-	run_descriptive_analysis,
+	DescriptivePaths,			# Classe per definire i percorsi dei file di input e output dell'analisi descrittiva.
+	load_target_series,			# Funzione per caricare le serie temporali target.
+	run_descriptive_analysis,	# Funzione per eseguire l'analisi descrittiva sui dati.
 )
 
+# Definizione della chiave della serie temporale target nel dataset.
+TARGET_SERIES_KEY = "production_total" 
 
-TARGET_SERIES_KEY = "production_total"
-
-
+# Funzione per salvare gli output del preprocessing. I risultati vengono salvati in modo organizzato nelle cartelle di metrics, plots e artifacts.
 def _save_preprocessing_outputs(
-	root: Path,
+	root: Path, 
 	preproc: TimeSeriesPreprocessor,
 	preproc_output: dict,
 	candidate_df: pd.DataFrame,
 	selected_cfg: PreprocessingConfig,
 ) -> dict[str, Path]:
-	"""Persist preprocessing artifacts to metrics and processed data folders."""
 
 	metrics_dir = root / "Results" / "metrics" / "preprocessing"
 	processed_dir = root / "Datasets" / "processed"
@@ -66,24 +69,27 @@ def _save_preprocessing_outputs(
 	artifacts_dir.mkdir(parents=True, exist_ok=True)
 	preproc_plots_dir.mkdir(parents=True, exist_ok=True)
 
+	# Costruzione del DataFrame dei test statistici a partire dal dizionario di output del preprocessing.
 	tests_rows = []
+	# Il dizionario preproc_output["tests"] contiene i risultati dei test statistici eseguiti sui dati (ADF, KPSS, Shapiro-Wilk). 
+  	# Per ogni split (train, val, test), estraiamo i risultati e li organizziamo in un formato tabellare.
 	for split_name, test_dict in preproc_output["tests"].items():
 		row = {
-			"split": split_name,
-			"n": test_dict.get("n"),
-			"adf_stat": test_dict.get("adf_stat"),
-			"adf_pvalue": test_dict.get("adf_pvalue"),
-			"adf_stationary_at_05": test_dict.get("adf_stationary_at_05"),
-			"kpss_stat": test_dict.get("kpss_stat"),
-			"kpss_pvalue": test_dict.get("kpss_pvalue"),
-			"kpss_stationary_at_05": test_dict.get("kpss_stationary_at_05"),
-			"shapiro_stat": test_dict.get("shapiro_stat"),
-			"shapiro_pvalue": test_dict.get("shapiro_pvalue"),
-			"shapiro_normal_at_05": test_dict.get("shapiro_normal_at_05"),
-			"kpss_note": test_dict.get("kpss_note", ""),
+			"split": split_name, 						# Indica a quale split dei dati si riferiscono i risultati del test (train, val o test).
+			"n": test_dict.get("n"), 					# Numero di osservazioni nello split, importante per interpretare i risultati dei test statistici.
+			"adf_stat": test_dict.get("adf_stat"), 		# Statistica del test ADF (Augmented Dickey-Fuller) per verificare la stazionarietà della serie temporale.
+			"adf_pvalue": test_dict.get("adf_pvalue"), 	# Valore p del test ADF.
+			"adf_stationary_at_05": test_dict.get("adf_stationary_at_05"), # Indica se la serie è stazionaria al livello di significatività 0.05 secondo il test ADF.
+			"kpss_stat": test_dict.get("kpss_stat"), 	# Statistica del test KPSS (Kwiatkowski-Phillips-Schmidt-Shin) per verificare la stazionarietà della serie temporale.
+			"kpss_pvalue": test_dict.get("kpss_pvalue"),# Valore p del test KPSS.
+			"kpss_stationary_at_05": test_dict.get("kpss_stationary_at_05"), # Indica se la serie è stazionaria al livello di significatività 0.05 secondo il test KPSS.
+			"shapiro_stat": test_dict.get("shapiro_stat"), # Statistica del test Shapiro-Wilk per verificare la normalità della serie temporale.
+			"shapiro_pvalue": test_dict.get("shapiro_pvalue"), # Valore p del test Shapiro-Wilk.
+			"shapiro_normal_at_05": test_dict.get("shapiro_normal_at_05"), # Indica se la serie è normale al livello di significatività 0.05 secondo il test Shapiro-Wilk.
+			"kpss_note": test_dict.get("kpss_note", ""), # Note aggiuntive sul test KPSS, se presenti.
 		}
 		tests_rows.append(row)
-	tests_df = pd.DataFrame(tests_rows)
+	tests_df = pd.DataFrame(tests_rows) # Creazione di un DataFrame a partire dalla lista di righe, che contiene i risultati dei test statistici per ogni split dei dati.
 
 	output_paths = {
 		"preproc_split_summary": metrics_dir / "split_summary.csv",
@@ -102,6 +108,7 @@ def _save_preprocessing_outputs(
 	preproc_output["local_outliers"].to_csv(output_paths["preproc_local_outliers"], index=False)
 	candidate_df.to_csv(output_paths["preproc_candidate_tests"], index=False)
 
+	# La tabella di backtest dei candidati potrebbe non essere sempre disponibile (dipende dalle configurazioni e dai test eseguiti), quindi selezioniamo solo le colonne effettivamente presenti.
 	backtest_cols = [
 		"use_log1p",
 		"power_exponent",
@@ -133,18 +140,20 @@ def _save_preprocessing_outputs(
 	else:
 		pd.DataFrame().to_csv(output_paths["preproc_candidate_backtest"], index=False)
 
+	# Salvataggio della configurazione di preprocessing selezionata in un file JSON, per documentare le trasformazioni e i test applicati ai dati prima di addestrare i modelli.
 	save_selected_preprocessing_config(selected_cfg, output_paths["preproc_selected_config"])
 
+    # Salvataggio dei dati preprocessed per train, validation e test.
 	for split_name in ("train", "val", "test"):
 		split_series = preproc_output["splits"][split_name]
 		split_series.rename("value").reset_index().to_csv(output_paths[f"preproc_{split_name}"], index=False)
-
+	# Salvataggio dei grafici di preprocessing, che possono includere visualizzazioni delle serie temporali, autocorrelazioni, distribuzioni e altri grafici utili per comprendere le trasformazioni applicate ai dati.
 	plot_paths = preproc.save_preprocessing_plots(preproc_output, preproc_plots_dir)
 	output_paths.update(plot_paths)
 
 	return output_paths
 
-
+# Le funzioni per salvare gli output dei vari step (statistico, ML, neurale, confronto e valutazione inferenziale/prescrittiva) seguono una struttura simile: creano le cartelle necessarie, definiscono i percorsi di output, salvano i DataFrame e i file JSON nei percorsi definiti e restituiscono un dizionario con i nomi degli output e i rispettivi percorsi.
 def _save_statistical_outputs(root: Path, stat_output: dict) -> dict[str, Path]:
 	"""Persist Step 3 statistical artifacts to metrics/plots/artifacts folders."""
 
@@ -242,7 +251,7 @@ def _save_neural_outputs(root: Path, neural_output: dict) -> dict[str, Path]:
 
 	return output_paths
 
-
+# La funzione per salvare i risultati del confronto tra le famiglie di modelli (statistico, ML, neurale) organizza i risultati in cartelle separate per metrics e artifacts, salva i DataFrame e i file JSON nei percorsi definiti e restituisce un dizionario con i nomi degli output e i rispettivi percorsi.
 def _save_comparison_outputs(root: Path, comparison_output: dict) -> dict[str, Path]:
 	"""Persist cross-family comparison artifacts."""
 
@@ -266,7 +275,7 @@ def _save_comparison_outputs(root: Path, comparison_output: dict) -> dict[str, P
 
 	return output_paths
 
-
+# La funzione per salvare i risultati della valutazione inferenziale (test di Diebold-Mariano) organizza i risultati in una cartella metrics/inferential, salva il DataFrame con i risultati del test e restituisce un dizionario con i nomi degli output e i rispettivi percorsi.
 def _save_inferential_outputs(root: Path, inferential_df: pd.DataFrame) -> dict[str, Path]:
 	"""Persist inferential comparison artifacts."""
 
@@ -280,7 +289,7 @@ def _save_inferential_outputs(root: Path, inferential_df: pd.DataFrame) -> dict[
 	inferential_df.to_csv(output_paths["inferential_diebold_mariano"], index=False)
 	return output_paths
 
-
+# La funzione per salvare i risultati della valutazione prescriptive organizza i risultati in una cartella metrics/prescriptive, salva il DataFrame con gli scenari prescriptivi e restituisce un dizionario con i nomi degli output e i rispettivi percorsi.
 def _save_prescriptive_outputs(root: Path, prescriptive_df: pd.DataFrame) -> dict[str, Path]:
 	"""Persist prescriptive analytics artifacts."""
 
@@ -294,10 +303,12 @@ def _save_prescriptive_outputs(root: Path, prescriptive_df: pd.DataFrame) -> dic
 	prescriptive_df.to_csv(output_paths["prescriptive_scenarios"], index=False)
 	return output_paths
 
-
+# La funzione main() esegue l'intera pipeline end-to-end, orchestrando i vari step (analisi descrittiva, preprocessing, modellazione statistica, ML e neurale, confronto e valutazione)
+# e salvando i risultati in modo organizzato.
 def main() -> None:
 	"""Run the currently implemented pipeline steps end-to-end."""
 
+	# Definizione dei percorsi principali: il percorso del dataset originale e le cartelle per salvare i risultati di ogni step della pipeline (metrics, plots, artifacts).
 	root = Path(__file__).resolve().parent
 	dataset_path = root / "Datasets" / "Tavola_1.14.csv"
 
@@ -307,21 +318,26 @@ def main() -> None:
 		results_metrics_dir=root / "Results" / "metrics" / "descriptive",
 		results_plots_dir=root / "Results" / "plots" / "descriptive",
 	)
+ 	# La funzione run_descriptive_analysis esegue l'analisi descrittiva sui dati, 
+  	# generando statistiche descrittive, visualizzazioni e identificando eventuali pattern o anomalie nella serie temporale target. 
+   	# I risultati vengono salvati nei percorsi definiti in desc_paths e restituiti in un dizionario con i nomi degli output e i rispettivi percorsi.
 	descriptive_outputs = run_descriptive_analysis(desc_paths, target=TARGET_SERIES_KEY)
 
 	print("Descriptive analysis completed.")
+ 	#Stampa i percorsi dei risultati dell'analisi descrittiva.
 	for name, file_path in descriptive_outputs.items():
 		print(f"- {name}: {file_path}")
 
 	# Step 2 - preprocessing based on descriptive conclusions.
 	series = load_target_series(dataset_path, target=TARGET_SERIES_KEY)
 
+	# La funzione prepare_preprocessing_for_profile esegue il preprocessing dei dati in base al profilo del modello (statistico, ML o neurale).
 	preproc, preproc_output, candidate_df, selected_cfg = prepare_preprocessing_for_profile(
 		series=series,
 		profile="statistical",
 		base_config=PreprocessingConfig(run_shapiro=True),
 	)
-
+	# Il preprocessing include l'applicazione di trasformazioni (log, differenziazione, scaling) e l'esecuzione di test statistici (ADF, KPSS, Shapiro-Wilk) per valutare la stazionarietà e la normalità dei dati.
 	preproc_outputs = _save_preprocessing_outputs(
 		root,
 		preproc,
@@ -336,11 +352,13 @@ def main() -> None:
 
 	# Step 3 - canonical statistical baseline (SARIMA + Holt-Winters).
 	# Standalone Step 3 runners are available in Project/models/statistical/runners/.
-	seasonal_period = infer_seasonal_period_from_index(preproc_output["splits"]["train"].index)
+	seasonal_period = infer_seasonal_period_from_index(preproc_output["splits"]["train"].index)# Analizza l'indice temporale dei dati di training per identificare il periodo stagionale più probabile.
 	stat_cfg = StatisticalStepConfig(
 		d_values=(0, 1),
 		seasonal_period=seasonal_period,
 	)
+	# La classe StatisticalModelRunner esegue l'addestramento e la previsione dei modelli statistici utilizzando i dati preprocessed, la configurazione definita e le serie originali.
+ 	# Restituisce un dizionario con i risultati dell'addestramento, delle previsioni e delle metriche di valutazione.
 	stat_runner = StatisticalModelRunner(
 		train=preproc_output["splits"]["train"],
 		validation=preproc_output["splits"]["val"],
@@ -412,6 +430,9 @@ def main() -> None:
 	for name, file_path in neural_paths.items():
 		print(f"- {name}: {file_path}")
 
+	# Step 6 - cross-family comparison and evaluation.
+	# La funzione build_cross_family_comparison confronta le performance dei modelli statistici, ML e neurali, identificando i vincitori di ogni famiglia e il vincitore globale. 
+ 	# Restituisce un dizionario con i risultati del confronto.
 	comparison_output = build_cross_family_comparison(stat_output, ml_output, neural_output)
 	comparison_paths = _save_comparison_outputs(root, comparison_output)
 
@@ -419,6 +440,8 @@ def main() -> None:
 	for name, file_path in comparison_paths.items():
 		print(f"- {name}: {file_path}")
 
+	# Step 7 - inferential evaluation and prescriptive analytics.
+	# La funzione build_diebold_mariano_table costruisce una tabella con i risultati del test di Diebold-Mariano, che confronta le previsioni dei modelli e valuta se le differenze sono statisticamente significative.
 	inferential_df = build_diebold_mariano_table(comparison_output["winner_forecasts"])
 	inferential_paths = _save_inferential_outputs(root, inferential_df)
 
@@ -426,6 +449,7 @@ def main() -> None:
 	for name, file_path in inferential_paths.items():
 		print(f"- {name}: {file_path}")
 
+	# La funzione build_prescriptive_table costruisce una tabella con scenari prescriptivi basati sulle previsioni dei modelli, che possono essere utilizzati per prendere decisioni informate sulla base delle performance dei modelli.
 	prescriptive_df = build_prescriptive_table(
 		comparison_output["family_winners"],
 		comparison_output["winner_forecasts"],

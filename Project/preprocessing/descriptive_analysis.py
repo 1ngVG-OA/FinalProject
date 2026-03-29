@@ -1,14 +1,6 @@
-"""Descriptive analysis utilities for Tavola_1.14.
-
-This module implements Step 1 of the project pipeline and provides a
-script-friendly alternative to exploratory notebooks.
-
-Main responsibilities:
-1) load and clean the target annual series from the ISTAT-style CSV,
-2) compute descriptive statistics (frequency, tendency, dispersion),
-3) detect global and local outliers,
-4) generate static plots and persist all outputs under ``Results/``.
-"""
+# Prima fase del progetto: analisi descrittiva e pulizia dei dati.
+# Questo modulo contiene funzioni per caricare la serie target, calcolare statistiche descrittive, identificare outlier e trend, e generare visualizzazioni esplorative.
+# In questo modo, si ottiene una comprensione "qualitativa" e "quantitativa" approfondita della serie temporale prima di procedere alla modellazione e alla previsione.
 
 from __future__ import annotations
 
@@ -30,38 +22,15 @@ TARGET_SERIES_NAME = {
     "production_total": "produzione_lorda_totale",
 }
 
-
+# Classe di configurazione per i percorsi dei file utilizzati nell'analisi descrittiva.
 @dataclass(frozen=True)
 class DescriptivePaths:
-    """Filesystem paths required by :func:`run_descriptive_analysis`.
-
-    Attributes:
-        dataset_path: Input CSV path.
-        results_metrics_dir: Output directory for CSV metric tables.
-        results_plots_dir: Output directory for PNG plots.
-    """
-
     dataset_path: Path
     results_metrics_dir: Path
     results_plots_dir: Path
 
-
+# Funzione di parsing per i valori numerici nel formato specifico del dataset ISTAT, che utilizza il punto come separatore delle migliaia e la virgola come separatore decimale.
 def _parse_istat_number(value: str) -> float:
-    """Parse ISTAT-style numeric strings into float.
-
-    Args:
-        value: Raw string value from CSV.
-
-    Returns:
-        Parsed numeric value as float, or ``np.nan`` for missing/non-parseable
-        tokens.
-
-    Examples:
-        - ``"1.150"`` -> ``1150.0``
-        - ``"2.575"`` -> ``2575.0``
-        - ``"...."``  -> ``np.nan``
-        - ``"-"``     -> ``np.nan``
-    """
 
     if value is None:
         return np.nan
@@ -70,7 +39,7 @@ def _parse_istat_number(value: str) -> float:
     if s in {"", "....", "-"}:
         return np.nan
 
-    # The dataset uses dot as thousands separator.
+    # Il dataset utilizza il punto come separatore delle migliaia e la virgola come separatore decimale.
     s = s.replace(".", "")
     s = s.replace(",", ".")
 
@@ -79,39 +48,23 @@ def _parse_istat_number(value: str) -> float:
     except ValueError:
         return np.nan
 
-
+# Funzione principale per caricare la serie target dal dataset CSV, pulire i dati e restituire una Serie Pandas con anni come indice e valori numerici.
 def load_target_series(dataset_path: Path, target: str = "production_total") -> pd.Series:
-    """Load annual target series from Tavola_1.14.csv.
 
-    The CSV contains multi-row headers; valid data rows are identified by a
-    4-digit year in column 0.
-
-    Args:
-        dataset_path: Absolute or relative path to ``Tavola_1.14.csv``.
-        target: Logical target key. Supported value: ``"production_total"``.
-
-    Returns:
-        Clean annual series indexed by year.
-
-    Raises:
-        ValueError: If ``target`` is not supported.
-
-    Supported target:
-    - production_total: "Produzione lorda - Totale" (column index 1).
-    """
-
+    # Validazione dell'input target e caricamento del dataset CSV.
     if target not in TARGET_COLUMN_INDEX:
         options = ", ".join(sorted(TARGET_COLUMN_INDEX))
         raise ValueError(f"Unsupported target '{target}'. Available targets: {options}")
 
+    # Filtro per righe che rappresentano anni e si estrae la colonna target specificata.
     raw = pd.read_csv(dataset_path, sep=";", header=None, dtype=str)
 
-    year_mask = raw[0].astype(str).str.fullmatch(r"\d{4}")
-    target_col = TARGET_COLUMN_INDEX[target]
-    data = raw.loc[year_mask, [0, target_col]].copy()
-    data.columns = ["year", "value"]
+    year_mask = raw[0].astype(str).str.fullmatch(r"\d{4}") 
+    target_col = TARGET_COLUMN_INDEX[target]    
+    data = raw.loc[year_mask, [0, target_col]].copy()  
+    data.columns = ["year", "value"]   
 
-    data["year"] = pd.to_numeric(data["year"], errors="coerce").astype("Int64")
+    data["year"] = pd.to_numeric(data["year"], errors="coerce").astype("Int64") 
     data["value"] = data["value"].map(_parse_istat_number)
 
     data = data.dropna(subset=["year", "value"]).copy()
@@ -122,22 +75,14 @@ def load_target_series(dataset_path: Path, target: str = "production_total") -> 
     series.index.name = "year"
     return series
 
-
+# Le seguenti funzioni implementano le varie analisi descrittive richieste, restituendo DataFrame con i risultati tabulari. 
 def _frequency_distribution(series: pd.Series, n_bins: int | None = None) -> pd.DataFrame:
-    """Build binned absolute and relative frequency distribution.
-
-    Args:
-        series: Input numeric series.
-        n_bins: Number of bins. If ``None``, Sturges' rule is used.
-
-    Returns:
-        DataFrame with class interval, absolute frequency and relative frequency.
-    """
-
+    # Calcola la distribuzione di frequenza della serie, suddividendo i valori in classi (bin) e contando le frequenze assolute e relative. 
     x = series.dropna()
     if n_bins is None:
         n_bins = int(np.ceil(np.log2(len(x)) + 1))
 
+    # Utilizza pd.cut per creare le classi e value_counts per contare le frequenze.
     categories = pd.cut(x, bins=n_bins, include_lowest=True)
     abs_freq = categories.value_counts(sort=False)
     rel_freq = abs_freq / abs_freq.sum()
@@ -150,17 +95,10 @@ def _frequency_distribution(series: pd.Series, n_bins: int | None = None) -> pd.
         }
     )
 
-
+# Le seguenti funzioni implementano le varie analisi descrittive richieste, restituendo DataFrame con i risultati tabulari.
 def _central_tendency(series: pd.Series) -> pd.DataFrame:
-    """Compute central tendency measures.
-
-    Args:
-        series: Input numeric series.
-
-    Returns:
-        One-row DataFrame containing mean, median and mode.
-    """
-
+    # Calcola le misure di tendenza centrale: media, mediana e moda. 
+    # La moda viene calcolata con pandas.Series.mode(), che può restituire più valori in caso di multimodalità; in questo caso, si prende il primo valore come rappresentativo.
     x = series.dropna()
     modes = x.mode()
     mode_value = float(modes.iloc[0]) if not modes.empty else np.nan
@@ -175,18 +113,10 @@ def _central_tendency(series: pd.Series) -> pd.DataFrame:
         ]
     )
 
-
 def _dispersion_measures(series: pd.Series) -> pd.DataFrame:
-    """Compute dispersion indicators.
-
-    Args:
-        series: Input numeric series.
-
-    Returns:
-        One-row DataFrame with range, variance, standard deviation,
-        coefficient of variation and IQR.
-    """
-
+    
+    # Calcola le misure di dispersione: range, varianza, deviazione standard, coefficiente di variazione e interquartile range (IQR).
+    # Il coefficiente di variazione è calcolato come deviazione standard divisa per la media, con gestione del caso in cui la media sia zero per evitare divisioni per zero.
     x = series.dropna()
     q1 = float(x.quantile(0.25))
     q3 = float(x.quantile(0.75))
@@ -208,19 +138,10 @@ def _dispersion_measures(series: pd.Series) -> pd.DataFrame:
         ]
     )
 
-
+# La funzione _outlier_table_iqr identifica gli outlier globali utilizzando il metodo dell'intervallo interquartile (IQR)
+# Restituisce sia i dettagli degli outlier che un riepilogo statistico.
 def _outlier_table_iqr(series: pd.Series) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Detect global outliers using the IQR rule.
-
-    Args:
-        series: Input numeric series.
-
-    Returns:
-        A tuple ``(details, summary)`` where:
-        - ``details`` lists outlier years and values,
-        - ``summary`` stores fences and aggregate outlier counts/ratios.
-    """
-
+    
     x = series.dropna()
     q1 = x.quantile(0.25)
     q3 = x.quantile(0.75)
@@ -228,8 +149,8 @@ def _outlier_table_iqr(series: pd.Series) -> Tuple[pd.DataFrame, pd.DataFrame]:
     lower = q1 - 1.5 * iqr
     upper = q3 + 1.5 * iqr
 
-    outlier_mask = (x < lower) | (x > upper)
-    outliers = x.loc[outlier_mask]
+    outlier_mask = (x < lower) | (x > upper) # Maschera booleana per identificare gli outlier globali secondo il criterio IQR
+    outliers = x.loc[outlier_mask] # Serie con solo gli outlier identificati
 
     details = pd.DataFrame(
         {
@@ -237,7 +158,7 @@ def _outlier_table_iqr(series: pd.Series) -> Tuple[pd.DataFrame, pd.DataFrame]:
             "value": outliers.values,
         }
     )
-
+    # Riepilogo statistico con i confini di outlier e il numero/percentuale di outlier identificati.
     summary = pd.DataFrame(
         [
             {
@@ -251,25 +172,19 @@ def _outlier_table_iqr(series: pd.Series) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     return details, summary
 
-
+# La funzione _trend_validation esegue un'analisi di regressione lineare per valutare la presenza di un trend significativo nella serie temporale
+# Restituisce sia i parametri della regressione che le statistiche di correlazione.
 def _trend_validation(series: pd.Series) -> pd.DataFrame:
-    """Evaluate long-run trend with linear and rank-based statistics.
-
-    Args:
-        series: Input annual series on original scale.
-
-    Returns:
-        One-row DataFrame with slope, p-values, R^2, Spearman correlation and
-        year-over-year sign shares.
-    """
 
     x = series.dropna().astype(float)
     years = x.index.to_numpy(dtype=float)
     values = x.to_numpy(dtype=float)
-
+    # Utilizza scipy.stats.linregress per calcolare i parametri della regressione lineare (slope, intercept) e le statistiche di significatività (p-value, r-squared).
+    # Calcola anche il coefficiente di correlazione di Spearman, che è una misura non parametrica della correlazione monotona tra anni e valori, utile per identificare trend non lineari.
     slope, intercept, r_value, p_value, std_err = stats.linregress(years, values)
     spearman_rho, spearman_p = stats.spearmanr(years, values)
-
+    
+    # Calcola la distribuzione dei cambiamenti anno su anno (YoY) per valutare la direzione del trend e la sua stabilità.
     diff = x.diff().dropna()
     positive_share = float((diff > 0).mean()) if len(diff) else np.nan
     negative_share = float((diff < 0).mean()) if len(diff) else np.nan
@@ -295,41 +210,31 @@ def _trend_validation(series: pd.Series) -> pd.DataFrame:
         ]
     )
 
-
+# La funzione _local_outliers_on_variation identifica gli outlier locali basati sui cambiamenti anno su anno (YoY) rispetto a una baseline locale calcolata con una mediana mobile.
+# Restituisce i dettagli degli outlier locali, un riepilogo statistico e una tabella con i dettagli di tutti i punti, inclusi i cambiamenti YoY, la baseline locale e i punteggi di outlier.
 def _local_outliers_on_variation(
     series: pd.Series,
     window: int = 11,
     threshold: float = 3.5,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Detect local anomalies on YoY changes using robust local scoring.
-
-    The method uses rolling MAD on residuals from a rolling median baseline,
-    with a rolling-std fallback when MAD is near zero.
-
-    Args:
-        series: Input annual level series.
-        window: Centered rolling window size.
-        threshold: Absolute score threshold for anomaly flagging.
-
-    Returns:
-        A tuple ``(details, local_outliers, summary)``.
-    """
-
+    
+    # Calcola i cambiamenti anno su anno (YoY) e utilizza una mediana mobile per stabilire una baseline locale.
     x = series.dropna().astype(float)
     yoy = x.diff().dropna()
-
+    # Il parametro min_periods è impostato a metà della finestra o a 5, per garantire che la mediana mobile venga calcolata solo quando ci sono abbastanza punti dati.
     min_periods = max(5, window // 2)
     rolling_median = yoy.rolling(window=window, center=True, min_periods=min_periods).median()
     residual = yoy - rolling_median
-
+    
+    # Calcola sia la deviazione assoluta mediana (MAD) che la deviazione standard per i residui, e utilizza una combinazione di entrambi per identificare gli outlier locali, con una soglia di 3.5 per il punteggio combinato.
     rolling_mad = residual.abs().rolling(window=window, center=True, min_periods=min_periods).median()
     rolling_std = residual.rolling(window=window, center=True, min_periods=min_periods).std(ddof=0)
-    eps = 1e-9
-    modified_z = 0.6745 * residual / (rolling_mad + eps)
+    eps = 1e-9 # Piccolo valore per evitare divisioni per zero.
+    modified_z = 0.6745 * residual / (rolling_mad + eps)   # Il fattore 0.6745 è utilizzato per rendere il punteggio modificato comparabile con la deviazione standard in caso di distribuzione normale.
     rolling_z = residual / (rolling_std + eps)
 
-    use_std_fallback = rolling_mad.fillna(0.0) < 1e-6
-    combined_score = modified_z.mask(use_std_fallback, rolling_z)
+    use_std_fallback = rolling_mad.fillna(0.0) < 1e-6 # Se la MAD è troppo piccola (indicando poca variabilità), si utilizza la deviazione standard come fallback per il calcolo del punteggio di outlier.
+    combined_score = modified_z.mask(use_std_fallback, rolling_z) # Punteggio modificato basato sulla MAD quando è affidabile / Punteggio basato sulla deviazione standard come fallback quando la MAD è troppo piccola.
 
     flag = combined_score.abs() > threshold
 
@@ -344,9 +249,9 @@ def _local_outliers_on_variation(
             "is_local_outlier": flag.fillna(False).values,
         }
     )
-
+    # Estrae solo gli outlier locali identificati per un'analisi più approfondita.
     local_outliers = details.loc[details["is_local_outlier"]].copy()
-
+    # Riepilogo statistico con il numero di outlier locali identificati, la loro proporzione rispetto al totale dei punti YoY, e le statistiche descrittive dei cambiamenti YoY.
     summary = pd.DataFrame(
         [
             {
@@ -365,23 +270,13 @@ def _local_outliers_on_variation(
 
     return details, local_outliers, summary
 
-
+# La funzione _save_distribution_plots genera una serie di visualizzazioni per esplorare la distribuzione della serie temporale, inclusi grafici di frequenza, densità, boxplot e trend.
 def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: Path) -> None:
-    """Generate and save descriptive plots to disk.
-
-    Args:
-        series: Clean target series.
-        freq_df: Frequency distribution table used by frequency plot.
-        out_dir: Destination directory for PNG files.
-
-    Returns:
-        None. Files are written as side effects.
-    """
 
     out_dir.mkdir(parents=True, exist_ok=True)
     x = series.dropna()
 
-    # 0) Baseline time-series plot to inspect raw trend/scale over years.
+    # 0) Serie temporale base con line plot per visualizzare l'andamento generale della serie nel tempo.
     fig, ax = plt.subplots(figsize=(12, 5))
     ax.plot(x.index, x.values, color="tab:blue", linewidth=2)
     series_label = str(series.name or "target_series").replace("_", " ").strip()
@@ -393,7 +288,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     fig.savefig(out_dir / "series_base.png", dpi=150)
     plt.close(fig)
 
-    # 1) Frequency distribution bar chart (empirical absolute + relative).
+    # 1) Grafico a barre della distribuzione di frequenza (assoluta + relativa empirica).
     fig, ax1 = plt.subplots(figsize=(12, 5))
     ax2 = ax1.twinx()
     idx = np.arange(len(freq_df))
@@ -414,7 +309,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     fig.savefig(out_dir / "frequency_distribution.png", dpi=150)
     plt.close(fig)
 
-    # 2) Histogram + KDE + fitted normal and uniform densities.
+    # 2) Istogramma + KDE + densità normale e uniforme adattate.
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.hist(x, bins=20, density=True, alpha=0.5, color="tab:blue", label="Empirical density")
 
@@ -436,11 +331,11 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     fig.savefig(out_dir / "density_comparison.png", dpi=150)
     plt.close(fig)
 
-    # 3) Discrete empirical distribution (top 30 frequencies to keep readability).
+    # 3) Distribuzione empirica discreta (top 30 frequenze per mantenere la leggibilità).
     discrete = x.value_counts(normalize=True).sort_values(ascending=False).head(30)
     fig, ax = plt.subplots(figsize=(12, 5))
     ax.bar(discrete.index.astype(str), discrete.values, color="tab:purple", alpha=0.8)
-    ax.set_title("Discrete Empirical Distribution (Top 30 values)")
+    ax.set_title("Empirical Discrete Distribution (Top 30 values)")
     ax.set_xlabel("Value")
     ax.set_ylabel("Relative frequency")
     ax.tick_params(axis="x", rotation=80)
@@ -448,7 +343,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     fig.savefig(out_dir / "discrete_distribution.png", dpi=150)
     plt.close(fig)
 
-    # 4) Boxplot + Q-Q plot for outlier/normality inspection.
+    # 4) Boxplot + Q-Q plot per l'ispezione di outlier e normalità.
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     axes[0].boxplot(x, vert=True)
     axes[0].set_title("Boxplot")
@@ -461,7 +356,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     fig.savefig(out_dir / "outliers_qqplot.png", dpi=150)
     plt.close(fig)
 
-    # 4b) Standalone global outlier boxplot (levels) for direct comparison.
+    # 4b) Boxplot globale per evidenziare la presenza di outlier globali secondo il criterio IQR, utile per confrontare con i risultati tabulari e identificare visivamente eventuali valori anomali.
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.boxplot(x, vert=True)
     ax.set_title("Global Outliers - Boxplot on Levels")
@@ -470,7 +365,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     fig.savefig(out_dir / "global_outliers_boxplot.png", dpi=150)
     plt.close(fig)
 
-    # 5) Trend validation plot: observed series + linear trend fit.
+    # 5) Grafico di validazione del trend con linea di regressione lineare sovrapposta alla serie temporale, per valutare visivamente la presenza di un trend significativo e confrontarlo con i risultati della regressione lineare calcolata nella funzione _trend_validation.
     years = x.index.to_numpy(dtype=float)
     values = x.to_numpy(dtype=float)
     slope, intercept, _, _, _ = stats.linregress(years, values)
@@ -488,7 +383,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     fig.savefig(out_dir / "trend_validation.png", dpi=150)
     plt.close(fig)
 
-    # 6) Local anomaly plot on year-over-year changes.
+    # 6) Grafico dei local outliers basato sui cambiamenti YoY, con evidenziazione degli outlier locali identificati rispetto alla baseline locale.
     yoy = x.diff().dropna()
     rolling_median = yoy.rolling(window=11, center=True, min_periods=5).median()
     residual = yoy - rolling_median
@@ -528,7 +423,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     fig.savefig(out_dir / "local_outliers_yoy.png", dpi=150)
     plt.close(fig)
 
-    # 6b) Local outlier boxplot on YoY changes for same-typology comparison.
+    # 6b) Boxplot dei cambiamenti YoY per evidenziare la presenza di outlier locali secondo il criterio basato sui residui rispetto alla baseline locale.
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.boxplot(yoy, vert=True)
     ax.set_title("Local Outliers - Boxplot on YoY Changes")
@@ -537,34 +432,26 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     fig.savefig(out_dir / "local_outliers_boxplot.png", dpi=150)
     plt.close(fig)
 
-
+# Funzione principale che esegue l'intera analisi descrittiva, orchestrando le funzioni di caricamento, 
+# calcolo delle statistiche e generazione dei grafici, e salvando tutti i risultati nei percorsi definiti.
 def run_descriptive_analysis(
     paths: DescriptivePaths,
     target: str = "production_total",
 ) -> dict[str, Path]:
-    """Run full descriptive analysis and persist CSV/PNG artifacts.
-
-    Args:
-        paths: Input/output path container.
-        target: Target key to extract from source CSV.
-
-    Returns:
-        Mapping of artifact logical names to output paths.
-    """
 
     paths.results_metrics_dir.mkdir(parents=True, exist_ok=True)
     paths.results_plots_dir.mkdir(parents=True, exist_ok=True)
 
     series = load_target_series(paths.dataset_path, target=target)
 
-    freq_df = _frequency_distribution(series)
-    central_df = _central_tendency(series)
-    dispersion_df = _dispersion_measures(series)
-    outliers_df, outlier_summary_df = _outlier_table_iqr(series)
-    trend_summary_df = _trend_validation(series)
-    yoy_details_df, local_outliers_df, local_outliers_summary_df = _local_outliers_on_variation(series)
+    freq_df = _frequency_distribution(series) # Calcola la distribuzione di frequenza della serie, suddividendo i valori in classi (bin) e contando le frequenze assolute e relative.
+    central_df = _central_tendency(series) # Calcola le misure di tendenza centrale della serie, come media, mediana e moda.
+    dispersion_df = _dispersion_measures(series) # Calcola le misure di dispersione della serie, come varianza, deviazione standard e intervallo interquartile.
+    outliers_df, outlier_summary_df = _outlier_table_iqr(series) # Identifica gli outlier globali utilizzando il criterio IQR e crea una tabella riepilogativa.
+    trend_summary_df = _trend_validation(series) # Valida la presenza di un trend nella serie temporale utilizzando una regressione lineare.
+    yoy_details_df, local_outliers_df, local_outliers_summary_df = _local_outliers_on_variation(series) # Identifica gli outlier locali basati sui cambiamenti YoY rispetto alla baseline locale.
 
-    # Save tabular outputs.
+    #   Salvataggio dei risultati tabulari.
     output_paths = {
         "series": paths.results_metrics_dir / "series_clean.csv",
         "frequency": paths.results_metrics_dir / "frequency_distribution.csv",
