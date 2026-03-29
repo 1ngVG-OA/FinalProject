@@ -1,4 +1,8 @@
-"""Run Step 5 neural baseline experiment with MLP and LSTM."""
+"""Esecuzione baseline dello Step 5 neurale con MLP e LSTM.
+
+Script operativo per lanciare preprocessing profile=neural, training dei modelli
+e salvataggio completo di metriche/artifact/plot.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,10 @@ TARGET_SERIES_KEY = "production_total"
 
 
 def run_baseline() -> None:
+    # ------------------------------------------------------------------
+    # Import locali e caricamento serie target
+    # ------------------------------------------------------------------
+
     from Project.models.neural import (
         NeuralModelRunner,
         build_compact_neural_config,
@@ -36,6 +44,10 @@ def run_baseline() -> None:
         base_config=PreprocessingConfig(run_shapiro=True),
     )
 
+    # ------------------------------------------------------------------
+    # Configurazione modello, run e raccolta output
+    # ------------------------------------------------------------------
+
     neural_cfg = build_compact_neural_config()
 
     runner = NeuralModelRunner(
@@ -47,6 +59,10 @@ def run_baseline() -> None:
         preprocessing_config=selected_cfg,
     )
     output = runner.run()
+
+    # ------------------------------------------------------------------
+    # Persistenza risultati su Results/metrics, Results/artifacts e plot
+    # ------------------------------------------------------------------
 
     metrics_dir = ROOT / "Results" / "metrics"
     artifacts_dir = ROOT / "Results" / "artifacts"

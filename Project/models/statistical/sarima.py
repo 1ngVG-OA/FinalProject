@@ -1,4 +1,8 @@
-"""SARIMA grid search runner for Step 3."""
+"""Terza fase del progetto: ricerca e refit del modello SARIMA.
+
+Questo modulo contiene la logica di generazione candidati, valutazione su validation
+e rifit finale su train+validation per il modello statistico SARIMA.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +25,12 @@ from .model_config import (
 
 
 class SarimaRunner:
-    """SARIMA grid search and refit on a fixed train/validation/test split."""
+    """Runner SARIMA su split fisso train/validation/test.
+
+    La classe esegue una grid search sulle configurazioni candidate, seleziona
+    il miglior modello in base alle metriche di validazione e permette il refit
+    finale sul blocco train+validation.
+    """
 
     def __init__(
         self,
@@ -49,7 +58,7 @@ class SarimaRunner:
         )
 
     # ------------------------------------------------------------------
-    # Candidate generation
+    # Generazione configurazioni candidate
     # ------------------------------------------------------------------
 
     def _sarima_candidates(self) -> list[dict[str, Any]]:
@@ -83,15 +92,13 @@ class SarimaRunner:
     # ------------------------------------------------------------------
 
     def fit_sarima_grid(self) -> tuple[pd.DataFrame, dict[str, Any]]:
-        """Run the SARIMA grid search evaluated on the validation split.
+        """Esegue la grid search SARIMA valutando ogni candidato su validation.
 
-        Returns
-        -------
-        results : pd.DataFrame
-            All candidate rows, sorted by (rank_rmse_val, rank_abs_mbe_val, aicc).
-        best : dict
-            Dict with keys ``fit``, ``cfg``, ``row``, ``rank_rmse``, ``rank_abs_mbe``
-            for the selected best candidate.
+        Restituisce:
+        - results: tabella completa dei candidati ordinata per ranking
+          (rank_rmse_val, rank_abs_mbe_val, aicc).
+        - best: dizionario con fit/configurazione/riga e ranking del miglior
+          candidato selezionato.
         """
         rows: list[dict[str, Any]] = []
         best: dict[str, Any] | None = None
@@ -176,11 +183,11 @@ class SarimaRunner:
         return results, best
 
     # ------------------------------------------------------------------
-    # Refit on train+validation
+    # Refit su train+validation
     # ------------------------------------------------------------------
 
     def refit(self, cfg: dict[str, Any]) -> Any:
-        """Refit the given SARIMA config on the train+validation set."""
+        """Esegue il refit della configurazione SARIMA scelta su train+validation."""
         model = SARIMAX(
             self.train_validation,
             order=cfg["order"],
@@ -192,7 +199,7 @@ class SarimaRunner:
 
 
 # ---------------------------------------------------------------------------
-# Private helpers
+# Helper privati
 # ---------------------------------------------------------------------------
 
 def _update_best(
@@ -203,7 +210,7 @@ def _update_best(
     rank_rmse_now: float,
     rank_abs_mbe_now: float,
 ) -> dict[str, Any]:
-    """Return the updated best candidate using RMSE -> abs_MBE -> AICc ranking."""
+    """Aggiorna il best candidate usando ranking RMSE -> abs_MBE -> AICc."""
     entry = {
         "fit": fit,
         "cfg": cfg,

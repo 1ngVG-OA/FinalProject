@@ -1,4 +1,4 @@
-"""Torch model definitions for the neural forecasting step."""
+"""Definizione dei modelli torch usati nello step di forecasting neurale."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from torch import nn
 
 
 class MLPForecaster(nn.Module):
-    """Time-lagged feedforward neural network for one-step regression."""
+    """Rete feedforward con lag temporali per regressione one-step."""
 
     def __init__(self, input_size: int, hidden_size: int, activation: str = "relu", dropout: float = 0.0) -> None:
         super().__init__()
@@ -29,7 +29,7 @@ class MLPForecaster(nn.Module):
 
 
 class LSTMForecaster(nn.Module):
-    """Many-to-one LSTM forecaster for one-step regression."""
+    """Forecaster LSTM many-to-one per regressione one-step."""
 
     def __init__(
         self,

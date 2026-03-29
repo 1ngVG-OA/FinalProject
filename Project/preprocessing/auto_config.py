@@ -27,6 +27,10 @@ from Project.preprocessing.time_series_preprocessor import (
 # Definizione di un tipo letterale per i profili di preprocessing, che categorizza le trasformazioni candidate in base alla famiglia di modelli target (statistical, ml, neural).
 PreprocessingProfile = Literal["statistical", "ml", "neural"]
 
+# ------------------------------------------------------------------
+# Candidati per profilo
+# ------------------------------------------------------------------
+
 # Trasformazioni candidate per il profilo "statistical", che include combinazioni di log1p, differenziazione e scaling parsimonioso, con un focus sulla stazionarietà.
 STATISTICAL_PREPROCESSING_CANDIDATES: tuple[TransformConfig, ...] = (
     TransformConfig(use_log1p=False, diff_order=0, scale_method="none"),
@@ -60,6 +64,10 @@ PREPROCESSING_CANDIDATES_BY_PROFILE: dict[PreprocessingProfile, tuple[TransformC
     "neural": NEURAL_PREPROCESSING_CANDIDATES,
 }
 
+
+# ------------------------------------------------------------------
+# Parametri backtest SARIMA ridotto
+# ------------------------------------------------------------------
 
 # Parametri e configurazioni per il backtest di validazione SARIMA utilizzato come proxy per valutare la stabilità e il bias indotto dalle trasformazioni candidate, con l'obiettivo di identificare potenziali problemi di drift durante l'inversione delle trasformazioni.
 BACKTEST_P_VALUES: tuple[int, ...] = (0, 1)

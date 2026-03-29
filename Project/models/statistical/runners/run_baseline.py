@@ -1,4 +1,8 @@
-"""Run Step 3 statistical baseline experiment."""
+"""Esecuzione baseline dello Step 3 statistico.
+
+Script operativo per lanciare preprocessing profile=statistical,
+allenamento SARIMA e salvataggio completo di metriche/artifact/plot.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,10 @@ TARGET_SERIES_KEY = "production_total"
 
 
 def run_baseline() -> None:
+    # ------------------------------------------------------------------
+    # Import locali e caricamento serie target
+    # ------------------------------------------------------------------
+
     from Project.models.statistical import StatisticalModelRunner, StatisticalStepConfig
     from Project.models.statistical.model_config import infer_seasonal_period_from_index
     from Project.preprocessing import PreprocessingConfig, prepare_preprocessing_for_profile, save_selected_preprocessing_config
@@ -29,6 +37,10 @@ def run_baseline() -> None:
         base_config=PreprocessingConfig(run_shapiro=True),
     )
 
+    # ------------------------------------------------------------------
+    # Configurazione statistica, run modello e raccolta output
+    # ------------------------------------------------------------------
+
     seasonal_period = infer_seasonal_period_from_index(preproc_output["splits"]["train"].index)
     stat_cfg = StatisticalStepConfig(d_values=(0, 1), seasonal_period=seasonal_period)
 
@@ -42,6 +54,10 @@ def run_baseline() -> None:
         diff_order=selected_cfg.transform.diff_order,
     )
     output = runner.run()
+
+    # ------------------------------------------------------------------
+    # Persistenza risultati su Results/metrics, Results/artifacts e plot
+    # ------------------------------------------------------------------
 
     metrics_dir = ROOT / "Results" / "metrics"
     artifacts_dir = ROOT / "Results" / "artifacts"

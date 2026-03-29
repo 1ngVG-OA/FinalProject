@@ -1,4 +1,8 @@
-"""Scenario-based prescriptive analytics derived from the global winner forecast."""
+"""Analisi prescrittiva scenario-based derivata dal global winner.
+
+Il modulo trasforma le previsioni del modello vincitore in segnali operativi,
+includendo margine di incertezza e raccomandazione per timestamp.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,7 @@ import pandas as pd
 
 
 def _signal_from_change(change_pct: float, uncertainty_ratio: float) -> str:
+    """Mappa variazione attesa e incertezza in un segnale prescrittivo."""
     if uncertainty_ratio >= 0.15:
         prefix = "high_uncertainty_"
     elif uncertainty_ratio >= 0.08:
@@ -28,7 +33,7 @@ def build_prescriptive_table(
     winner_forecasts: pd.DataFrame,
     original_series: pd.Series,
 ) -> pd.DataFrame:
-    """Build simple scenario-based recommendations from the global winner."""
+    """Costruisce raccomandazioni scenario-based dal global winner."""
 
     global_winner = family_winners.iloc[0]
     family = str(global_winner["family"])
@@ -36,6 +41,10 @@ def build_prescriptive_table(
     uncertainty_margin = float(global_winner.get("rmse_val_orig", np.nan))
     if not np.isfinite(uncertainty_margin):
         uncertainty_margin = float(global_winner.get("rmse_val", np.nan))
+
+    # ------------------------------------------------------------------
+    # Costruzione raccomandazioni sul solo split test
+    # ------------------------------------------------------------------
 
     raw = pd.to_numeric(original_series, errors="coerce").dropna().astype(float)
     rows: list[dict[str, Any]] = []

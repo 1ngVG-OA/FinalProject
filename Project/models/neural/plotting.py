@@ -1,4 +1,4 @@
-"""Plot utilities for torch-based neural forecasting models."""
+"""Utility di plotting per modelli di forecasting neurali torch."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def _suffix_name(base_name: str, suffix: str | None) -> str:
 
 
 def save_neural_plots(output: dict[str, Any], out_dir: Path, suffix: str | None = None) -> dict[str, Path]:
-    """Save transformed-scale and original-scale forecast plots for Step 5."""
+    """Salva i grafici forecast in scala trasformata e scala originale."""
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -59,6 +59,10 @@ def save_neural_plots(output: dict[str, Any], out_dir: Path, suffix: str | None 
     fig.tight_layout()
     fig.savefig(paths["neural_plot_forecasts"], dpi=150)
     plt.close(fig)
+
+    # ------------------------------------------------------------------
+    # Forecast in scala originale (quando inversione disponibile)
+    # ------------------------------------------------------------------
 
     original_series = output.get("original_series")
     preprocessing_config = output.get("preprocessing_config")

@@ -1,4 +1,8 @@
-"""Run Step 4 ML baseline experiment."""
+"""Esecuzione baseline dello Step 4 ML non neurale.
+
+Script operativo per lanciare preprocessing profile=ml, training dei modelli
+e salvataggio completo di metriche/artifact/plot.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,10 @@ TARGET_SERIES_KEY = "production_total"
 
 
 def run_baseline() -> None:
+    # ------------------------------------------------------------------
+    # Import locali e caricamento serie target
+    # ------------------------------------------------------------------
+
     from Project.models.ml import MLModelRunner, MLStepConfig, save_ml_plots
     from Project.preprocessing import (
         PreprocessingConfig,
@@ -31,6 +39,10 @@ def run_baseline() -> None:
         profile="ml",
         base_config=PreprocessingConfig(run_shapiro=True),
     )
+
+    # ------------------------------------------------------------------
+    # Configurazione modello, run e raccolta output
+    # ------------------------------------------------------------------
 
     ml_cfg = MLStepConfig(
         lookback_values=(6, 12),
@@ -57,6 +69,10 @@ def run_baseline() -> None:
         diff_order=selected_cfg.transform.diff_order,
     )
     output = runner.run()
+
+    # ------------------------------------------------------------------
+    # Persistenza risultati su Results/metrics, Results/artifacts e plot
+    # ------------------------------------------------------------------
 
     metrics_dir = ROOT / "Results" / "metrics"
     artifacts_dir = ROOT / "Results" / "artifacts"

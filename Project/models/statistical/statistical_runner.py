@@ -1,7 +1,7 @@
-"""Statistical model orchestrator for Step 3.
+"""Orchestratore dei modelli statistici per lo Step 3.
 
-Delegates SARIMA grid search and evaluation to :class:`SarimaRunner` (``sarima.py``).
-Shared configuration and utility functions live in ``model_config.py``.
+Il modulo delega grid search, refit e valutazione SARIMA ai componenti dedicati,
+restituendo un output unico con metriche, forecast e diagnostica residui.
 """
 
 from __future__ import annotations
@@ -28,9 +28,9 @@ from .sarima import SarimaRunner
 
 
 class StatisticalModelRunner:
-    """Run Step 3 SARIMA following a shared protocol.
+    """Esegue lo Step 3 SARIMA seguendo un protocollo condiviso.
 
-    Internally delegates the grid-search and refit logic to
+    Internamente delega la ricerca iperparametri e il refit finale a
     :class:`SarimaRunner`.
     """
 
@@ -63,7 +63,7 @@ class StatisticalModelRunner:
         )
 
     def run(self) -> dict[str, Any]:
-        """Run complete Step 3 workflow and return all artifacts."""
+        """Esegue l'intero workflow Step 3 e restituisce tutti gli artifact."""
 
         sarima_grid_df, sarima_best = self._sarima_runner.fit_sarima_grid()
 
@@ -131,5 +131,5 @@ class StatisticalModelRunner:
 
     @staticmethod
     def save_plots(output: dict[str, Any], out_dir: Path, suffix: str | None = None) -> dict[str, Path]:
-        """Save Step 3 plots via the dedicated plotting module."""
+        """Salva i grafici Step 3 tramite il modulo di plotting dedicato."""
         return save_statistical_plots(output, out_dir, suffix=suffix)

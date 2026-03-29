@@ -1,4 +1,4 @@
-"""Step 4 runner for non-neural ML models with lag features."""
+"""Runner dello Step 4 per modelli ML non neurali con feature lag."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ except Exception:  # pragma: no cover
 
 
 class MLModelRunner:
-    """Run Step 4 non-neural ML model selection and evaluation."""
+    """Esegue selezione e valutazione dei modelli ML non neurali (Step 4)."""
 
     def __init__(
         self,
@@ -51,6 +51,10 @@ class MLModelRunner:
         self.diff_order = int(diff_order)
 
     def _candidate_configs(self) -> list[dict[str, Any]]:
+        # ------------------------------------------------------------------
+        # Generazione configurazioni candidate
+        # ------------------------------------------------------------------
+
         cfg = self.config
         rows: list[dict[str, Any]] = []
 
@@ -158,7 +162,7 @@ class MLModelRunner:
         lookback: int,
         selected_features: list[str],
     ) -> pd.Series:
-        """Generate recursive multi-step forecast over the given horizon."""
+        """Genera forecast ricorsivo multi-step sull'orizzonte richiesto."""
         history = list(seed_series.astype(float).to_numpy())
         preds = []
 
@@ -175,7 +179,7 @@ class MLModelRunner:
         return pd.Series(np.asarray(preds), index=horizon_index, name="pred")
 
     def run(self) -> dict[str, Any]:
-        """Run full Step 4 workflow and return all artifacts."""
+        """Esegue il workflow completo Step 4 e restituisce tutti gli artifact."""
         grid_rows: list[dict[str, Any]] = []
         best_by_model: dict[str, dict[str, Any]] = {}
         prepared_by_lookback: dict[int, dict[str, Any]] = {}

@@ -1,4 +1,4 @@
-"""Runner for Step 5 torch-based neural models."""
+"""Runner dello Step 5 per modelli neurali basati su torch."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from .models import LSTMForecaster, MLPForecaster
 
 
 class NeuralModelRunner:
-    """Run Step 5 neural model selection and evaluation."""
+    """Esegue selezione e valutazione dei modelli neurali (Step 5)."""
 
     def __init__(
         self,
@@ -49,6 +49,10 @@ class NeuralModelRunner:
         self.device = resolve_torch_device(self.config.device)
 
     def _candidate_configs(self) -> list[dict[str, Any]]:
+        # ------------------------------------------------------------------
+        # Generazione configurazioni candidate
+        # ------------------------------------------------------------------
+
         cfg = self.config
         rows: list[dict[str, Any]] = []
 
@@ -217,7 +221,7 @@ class NeuralModelRunner:
         horizon_index: pd.Index,
         lookback: int,
     ) -> pd.Series:
-        """Recursive multi-step forecast using the model as a one-step predictor."""
+        """Forecast ricorsivo multi-step usando il modello come one-step predictor."""
 
         history = list(pd.to_numeric(seed_series, errors="coerce").dropna().astype(float).to_numpy())
         preds: list[float] = []
@@ -239,7 +243,7 @@ class NeuralModelRunner:
         return pd.Series(np.asarray(preds, dtype=float), index=horizon_index, name="pred")
 
     def run(self) -> dict[str, Any]:
-        """Run neural model selection and return all artifacts."""
+        """Esegue la selezione neurale e restituisce tutti gli artifact."""
 
         grid_rows: list[dict[str, Any]] = []
         best_by_model: dict[str, dict[str, Any]] = {}

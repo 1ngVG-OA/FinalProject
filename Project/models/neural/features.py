@@ -1,4 +1,4 @@
-"""Sliding-window utilities for neural forecasting models."""
+"""Utility a finestre mobili per modelli di forecasting neurali."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import pandas as pd
 
 @dataclass(frozen=True)
 class WindowedSplits:
-    """Supervised datasets and recursive forecast seeds for a given lookback."""
+    """Dataset supervisionati e seed ricorsivi per uno specifico lookback."""
 
     X_train: np.ndarray
     y_train: np.ndarray
@@ -23,7 +23,7 @@ class WindowedSplits:
 
 
 def build_training_windows(series: pd.Series, lookback: int) -> tuple[np.ndarray, np.ndarray]:
-    """Create one-step supervised windows from a single series segment."""
+    """Crea finestre supervisionate one-step da un singolo segmento."""
 
     x = pd.to_numeric(series, errors="coerce").dropna().astype(float)
     if len(x) <= lookback:
@@ -40,7 +40,7 @@ def build_segment_windows(
     target_index: pd.Index,
     lookback: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Create windows for targets that belong to a later segment of a combined series."""
+    """Crea finestre per target che appartengono a segmenti successivi della serie."""
 
     x = pd.to_numeric(source_series, errors="coerce").dropna().astype(float)
     index_to_pos = {idx: pos for pos, idx in enumerate(x.index)}
@@ -65,7 +65,7 @@ def build_windowed_splits(
     test: pd.Series,
     lookback: int,
 ) -> WindowedSplits:
-    """Build supervised datasets for train/validation/test and recursive seeds."""
+    """Costruisce dataset supervisionati train/validation/test e seed ricorsivi."""
 
     train_series = pd.to_numeric(train, errors="coerce").dropna().astype(float)
     val_series = pd.to_numeric(validation, errors="coerce").dropna().astype(float)

@@ -1,4 +1,4 @@
-"""Torch-based neural models for the forecasting pipeline."""
+"""Esportazioni dei modelli neurali torch per la pipeline forecasting."""
 
 from .model_config import NeuralStepConfig
 from .model_config import build_compact_neural_config, build_extended_neural_config

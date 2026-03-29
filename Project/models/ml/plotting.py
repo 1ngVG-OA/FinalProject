@@ -1,4 +1,4 @@
-"""Plot utilities for Step 4 non-neural ML models."""
+"""Utility di plotting per i modelli ML non neurali dello Step 4."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def _suffix_name(base_name: str, suffix: str | None) -> str:
 
 
 def save_ml_plots(output: dict[str, Any], out_dir: Path, suffix: str | None = None) -> dict[str, Path]:
-    """Save transformed-scale and original-scale comparison plots for Step 4."""
+    """Salva grafici di confronto in scala trasformata e originale."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -61,6 +61,10 @@ def save_ml_plots(output: dict[str, Any], out_dir: Path, suffix: str | None = No
     fig.tight_layout()
     fig.savefig(paths["ml_plot_forecasts"], dpi=150)
     plt.close(fig)
+
+    # ------------------------------------------------------------------
+    # Forecast in scala originale (quando inversione disponibile)
+    # ------------------------------------------------------------------
 
     original_series = output.get("original_series")
     use_log1p = bool(output.get("use_log1p", False))

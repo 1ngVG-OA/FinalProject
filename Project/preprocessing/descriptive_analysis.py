@@ -22,6 +22,10 @@ TARGET_SERIES_NAME = {
     "production_total": "produzione_lorda_totale",
 }
 
+# ------------------------------------------------------------------
+# Configurazioni e parsing input
+# ------------------------------------------------------------------
+
 # Classe di configurazione per i percorsi dei file utilizzati nell'analisi descrittiva.
 @dataclass(frozen=True)
 class DescriptivePaths:
@@ -47,6 +51,11 @@ def _parse_istat_number(value: str) -> float:
         return float(s)
     except ValueError:
         return np.nan
+
+
+# ------------------------------------------------------------------
+# Caricamento serie target
+# ------------------------------------------------------------------
 
 # Funzione principale per caricare la serie target dal dataset CSV, pulire i dati e restituire una Serie Pandas con anni come indice e valori numerici.
 def load_target_series(dataset_path: Path, target: str = "production_total") -> pd.Series:

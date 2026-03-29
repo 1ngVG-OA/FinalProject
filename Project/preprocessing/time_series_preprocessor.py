@@ -18,6 +18,10 @@ from statsmodels.tsa.stattools import adfuller, kpss
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
 
+# ------------------------------------------------------------------
+# Configurazioni preprocessing
+# ------------------------------------------------------------------
+
 @dataclass(frozen=True)
 class SplitConfig:
 
@@ -50,6 +54,10 @@ class PreprocessingConfig:
     run_shapiro: bool = False # Opzione per eseguire il test di normalità Shapiro-Wilk sui residui della serie trasformata, utile per valutare la normalità dei dati dopo le trasformazioni e confrontarla con i risultati dei test di stazionarietà.
     shapiro_max_n: int = 5000 # Numero massimo di campioni da utilizzare per il test di Shapiro-Wilk, che può essere computazionalmente costoso su serie molto lunghe, quindi si limita a un campione rappresentativo dei dati trasformati.
 
+
+# ------------------------------------------------------------------
+# Preprocessor principale
+# ------------------------------------------------------------------
 
 class TimeSeriesPreprocessor:
     # Preprocessing class per serie temporali, che include validazione, trasformazioni deterministiche, scaling, rilevamento outlier locali e test di stazionarietà.

@@ -1,4 +1,4 @@
-"""Configuration and utilities for torch-based neural forecasting models."""
+"""Configurazione e utility per modelli di forecasting neurali basati su torch."""
 
 from __future__ import annotations
 
@@ -18,8 +18,12 @@ from Project.models.ml.model_config import (
 from Project.preprocessing.time_series_preprocessor import PreprocessingConfig, TimeSeriesPreprocessor
 
 
+# ------------------------------------------------------------------
+# Utility training e device
+# ------------------------------------------------------------------
+
 def seed_everything(seed: int) -> None:
-    """Set Python, NumPy and Torch seeds for reproducible neural training."""
+    """Imposta seed Python, NumPy e Torch per training riproducibile."""
 
     random.seed(seed)
     np.random.seed(seed)
@@ -33,7 +37,7 @@ def seed_everything(seed: int) -> None:
 
 
 def resolve_torch_device(device_name: str) -> torch.device:
-    """Resolve a torch device with explicit CPU fallback."""
+    """Risolve il device torch con fallback esplicito a CPU."""
 
     requested = str(device_name).lower().strip()
     if requested == "auto":
@@ -63,7 +67,7 @@ def invert_preprocessed_segment(
     original_series: pd.Series | None,
     preprocessing_config: PreprocessingConfig | None,
 ) -> pd.Series | None:
-    """Invert scaling and deterministic transforms to recover original-scale predictions."""
+    """Inverte scaling e trasformazioni deterministiche alla scala originale."""
 
     if original_series is None or preprocessing_config is None:
         return None
@@ -135,7 +139,7 @@ def original_scale_metrics_for_segment(
     original_series: pd.Series | None,
     preprocessing_config: PreprocessingConfig | None,
 ) -> dict[str, float] | None:
-    """Compute original-scale metrics after inversion of the preprocessing pipeline."""
+    """Calcola metriche in scala originale dopo inversione del preprocessing."""
 
     pred_orig = invert_preprocessed_segment(pred_segment, original_series, preprocessing_config)
     if pred_orig is None:
@@ -151,7 +155,7 @@ def original_scale_metrics_for_segment(
 
 @dataclass(frozen=True)
 class NeuralStepConfig:
-    """Configuration for the first neural forecasting step."""
+    """Configurazione dello step neurale di forecasting."""
 
     candidate_models: tuple[str, ...] = ("mlp", "lstm")
     lookback_values: tuple[int, ...] = (6, 12)
@@ -175,7 +179,7 @@ class NeuralStepConfig:
 
     @staticmethod
     def validate_split(series: pd.Series, name: str) -> pd.Series:
-        """Validate an input split series for neural windowing."""
+        """Valida uno split in ingresso per il windowing neurale."""
 
         if not isinstance(series, pd.Series):
             raise TypeError(f"{name} must be a pandas Series")
@@ -189,7 +193,7 @@ class NeuralStepConfig:
 
     @staticmethod
     def validate_original_series(series: pd.Series | None) -> pd.Series | None:
-        """Validate the original untransformed series used for inverse metrics."""
+        """Valida la serie originale non trasformata usata per metriche inverse."""
 
         if series is None:
             return None
@@ -204,7 +208,7 @@ class NeuralStepConfig:
 
 
 def build_compact_neural_config() -> NeuralStepConfig:
-    """Return the recommended compact neural config for canonical/main runs."""
+    """Restituisce la configurazione neurale compatta consigliata."""
 
     return NeuralStepConfig(
         candidate_models=("mlp", "lstm"),
@@ -226,7 +230,7 @@ def build_compact_neural_config() -> NeuralStepConfig:
 
 
 def build_extended_neural_config() -> NeuralStepConfig:
-    """Return the extended neural search space used for wider exploration."""
+    """Restituisce lo spazio di ricerca neurale esteso per esplorazione ampia."""
 
     return NeuralStepConfig(
         candidate_models=("mlp", "lstm"),

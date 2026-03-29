@@ -1,4 +1,4 @@
-"""Evaluation utilities for Step 3 statistical models."""
+"""Utility di valutazione per i modelli statistici dello Step 3."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def build_residuals_table(
     residuals: pd.Series,
     ljung_box_lags: int,
 ) -> pd.DataFrame:
-    """Build Ljung-Box diagnostics table for a residual series."""
+    """Costruisce la tabella diagnostica Ljung-Box per una serie di residui."""
     lags = min(ljung_box_lags, max(1, len(residuals) // 3))
     lb = acorr_ljungbox(residuals.dropna(), lags=[lags], return_df=True)
     return pd.DataFrame(
@@ -44,7 +44,7 @@ def build_summary_table(
     diff_order: int,
     train_validation_len: int,
 ) -> pd.DataFrame:
-    """Build the summary table for SARIMA."""
+    """Costruisce la tabella di sintesi delle metriche SARIMA."""
 
     sarima_val_orig_metrics = validation_original_metrics(
         sarima_val_pred, sarima_orig_context, diff_order
@@ -95,7 +95,7 @@ def build_forecast_table(
     sarima_val_pred: pd.Series,
     sarima_test_pred: pd.Series,
 ) -> pd.DataFrame:
-    """Build the merged forecast table for validation and test splits."""
+    """Costruisce la tabella unica forecast per split validation e test."""
     return pd.DataFrame(
         {
             "split": ["validation"] * len(validation) + ["test"] * len(test),
@@ -107,11 +107,11 @@ def build_forecast_table(
 
 
 def select_winner(summary: pd.DataFrame) -> tuple[str, pd.Series]:
-    """Select winner model by validation metrics to avoid test leakage.
+    """Seleziona il modello vincitore usando solo metriche di validation.
 
-    Preference order:
-    1) original-scale validation metrics (if available),
-    2) transformed validation metrics as fallback.
+    Ordine preferenza:
+    1) metriche in scala originale (se disponibili),
+    2) metriche su serie trasformata come fallback.
     """
     sort_df = summary.copy()
 

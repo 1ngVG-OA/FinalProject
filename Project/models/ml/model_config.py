@@ -1,4 +1,4 @@
-"""Configuration and shared utilities for Step 4 (non-neural ML)."""
+"""Configurazione e utility condivise per lo Step 4 (ML non neurale)."""
 
 from __future__ import annotations
 
@@ -10,20 +10,24 @@ import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
+# ------------------------------------------------------------------
+# Utility metriche
+# ------------------------------------------------------------------
+
 def safe_mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Compute MAPE while ignoring near-zero denominators."""
+    """Calcola il MAPE ignorando denominatori prossimi a zero."""
     denom = np.where(np.abs(y_true) < 1e-9, np.nan, np.abs(y_true))
     ape = np.abs((y_true - y_pred) / denom)
     return float(np.nanmean(ape) * 100.0)
 
 
 def mean_bias_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Mean signed error (positive => over-forecast)."""
+    """Errore medio con segno (positivo => sovrastima media)."""
     return float(np.nanmean(y_pred - y_true))
 
 
 def compute_metrics(y_true: pd.Series, y_pred: pd.Series | np.ndarray) -> dict[str, float]:
-    """Return RMSE/MAE/MAPE/MBE on aligned indices."""
+    """Restituisce RMSE/MAE/MAPE/MBE su indici allineati."""
     pred = pd.Series(np.asarray(y_pred, dtype=float), index=y_true.index)
     yt = y_true.astype(float).to_numpy()
     yp = pred.astype(float).to_numpy()
@@ -38,7 +42,7 @@ def compute_metrics(y_true: pd.Series, y_pred: pd.Series | np.ndarray) -> dict[s
 
 
 def compute_metrics_aligned(y_true: pd.Series, y_pred: pd.Series) -> dict[str, float]:
-    """Compute metrics after index alignment and NaN filtering."""
+    """Calcola le metriche dopo allineamento indice e filtro NaN."""
     y_true_num = pd.to_numeric(y_true, errors="coerce")
     y_pred_num = pd.to_numeric(y_pred, errors="coerce")
     aligned = pd.concat([y_true_num.rename("y_true"), y_pred_num.rename("y_pred")], axis=1).dropna()
@@ -54,7 +58,7 @@ def compute_metrics_aligned(y_true: pd.Series, y_pred: pd.Series) -> dict[str, f
 
 
 def invert_diff2_log1p(pred_d2: pd.Series, seed_d1: float, seed_log: float) -> pd.Series:
-    """Invert predictions from diff2(log1p(y)) to original scale."""
+    """Inverte previsioni da diff2(log1p(y)) alla scala originale."""
     d1_pred = seed_d1 + pred_d2.cumsum()
     log_pred = seed_log + d1_pred.cumsum()
     return np.expm1(log_pred)
@@ -66,10 +70,10 @@ def original_scale_metrics_for_segment(
     use_log1p: bool,
     diff_order: int,
 ) -> dict[str, float] | None:
-    """Compute metrics in original scale for a predicted segment.
+    """Calcola metriche in scala originale per un segmento predetto.
 
-    Handles transformations: log1p only (diff_order=0), diff1(log1p),
-    diff2(log1p).
+    Gestisce le trasformazioni: solo log1p (diff_order=0), diff1(log1p)
+    e diff2(log1p).
     """
     if original_series is None or not use_log1p or diff_order not in (0, 1, 2):
         return None
@@ -106,7 +110,7 @@ def original_scale_metrics_for_segment(
 
 @dataclass(frozen=True)
 class MLStepConfig:
-    """Configuration for Step 4 non-neural ML models."""
+    """Configurazione dei modelli ML non neurali dello Step 4."""
 
     lookback_values: tuple[int, ...] = (6, 8, 12)
     feature_selection: str = "importance"  # one of: none, rfe, importance
@@ -114,7 +118,7 @@ class MLStepConfig:
     random_state: int = 42
     use_xgboost: bool = True
 
-    # Model parameter grids.
+    # Griglie parametri per modello.
     dt_max_depth: tuple[int | None, ...] = (3, 5, None)
     dt_min_samples_leaf: tuple[int, ...] = (1, 2, 4)
 
@@ -134,7 +138,7 @@ class MLStepConfig:
 
     @staticmethod
     def validate_split(series: pd.Series, name: str) -> pd.Series:
-        """Validate and clean a split series."""
+        """Valida e pulisce una serie di split."""
         if not isinstance(series, pd.Series):
             raise TypeError(f"{name} must be a pandas Series")
         s = pd.to_numeric(series, errors="coerce").dropna().astype(float)
@@ -147,7 +151,7 @@ class MLStepConfig:
 
     @staticmethod
     def validate_original_series(series: pd.Series | None) -> pd.Series | None:
-        """Validate original untransformed series used for inverse-scale metrics."""
+        """Valida la serie originale non trasformata usata per metriche inverse."""
         if series is None:
             return None
         if not isinstance(series, pd.Series):
@@ -161,5 +165,5 @@ class MLStepConfig:
 
 
 def parse_model_name(cfg: dict[str, Any]) -> str:
-    """Return model family name from a config dict."""
+    """Restituisce il nome famiglia modello a partire da una config."""
     return str(cfg["model"])

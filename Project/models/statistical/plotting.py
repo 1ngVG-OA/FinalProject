@@ -1,4 +1,4 @@
-"""Plotting utilities for Step 3 statistical model outputs."""
+"""Utility di plotting per gli output statistici dello Step 3."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def save_statistical_plots(
     out_dir: Path,
     suffix: str | None = None,
 ) -> dict[str, Path]:
-    """Save comparison and residual diagnostic plots for Step 3."""
+    """Salva i grafici di confronto forecast e diagnostica dei residui."""
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -51,6 +51,10 @@ def save_statistical_plots(
     fig.savefig(paths["stat_plot_forecasts"], dpi=150)
     plt.close(fig)
 
+    # ------------------------------------------------------------------
+    # Diagnostica residui (ACF/PACF)
+    # ------------------------------------------------------------------
+
     def _acf_lags(residuals: pd.Series) -> int:
         return max(1, min(20, len(residuals) - 1))
 
@@ -71,6 +75,10 @@ def save_statistical_plots(
     fig.tight_layout()
     fig.savefig(paths["stat_plot_residuals"], dpi=150)
     plt.close(fig)
+
+    # ------------------------------------------------------------------
+    # Forecast in scala originale (quando inversione disponibile)
+    # ------------------------------------------------------------------
 
     original_series = output.get("original_series")
     use_log1p = bool(output.get("use_log1p", False))

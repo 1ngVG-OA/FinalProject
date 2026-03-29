@@ -1,4 +1,4 @@
-"""Step 4 non-neural ML models package exports."""
+"""Esportazioni del pacchetto modelli ML non neurali (Step 4)."""
 
 from Project.models.ml.model_config import MLStepConfig
 from Project.models.ml.runner import MLModelRunner

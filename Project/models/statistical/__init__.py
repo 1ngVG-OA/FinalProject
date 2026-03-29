@@ -5,7 +5,7 @@ from Project.models.statistical.model_config import (
     infer_seasonal_period_from_index,
 )
 from Project.models.statistical.sarima import SarimaRunner
-from Project.models.statistical.sarima_hw import StatisticalModelRunner
+from Project.models.statistical.statistical_runner import StatisticalModelRunner
 
 __all__ = [
     "StatisticalStepConfig",

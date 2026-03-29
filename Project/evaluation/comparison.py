@@ -1,4 +1,8 @@
-"""Cross-family comparison helpers for the canonical forecasting pipeline."""
+"""Utility di confronto cross-family per la pipeline di forecasting.
+
+Il modulo aggrega i risultati dei vincitori statistical/ml/neural,
+costruisce tabelle comparative e identifica il global winner.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +21,7 @@ def _invert_log_diff_segment(
     use_log1p: bool,
     diff_order: int,
 ) -> pd.Series | None:
-    """Invert a log1p/differenced forecast segment back to original scale."""
+    """Inverte un segmento forecast log1p/differenziato in scala originale."""
 
     if original_series is None or pred_segment.empty:
         return None
@@ -60,12 +64,14 @@ def _invert_log_diff_segment(
 
 
 def _with_family_metadata(summary: pd.DataFrame, family: str) -> pd.DataFrame:
+    """Aggiunge la colonna family a una summary di modello."""
     df = summary.copy()
     df.insert(0, "family", family)
     return df
 
 
 def _winner_row(summary: pd.DataFrame, family: str, winner: str) -> pd.Series:
+    """Estrae la riga del modello vincitore per una specifica family."""
     row = summary.loc[summary["model"].astype(str) == str(winner)]
     if row.empty:
         raise KeyError(f"Winner '{winner}' not found in summary for family '{family}'")
@@ -75,6 +81,7 @@ def _winner_row(summary: pd.DataFrame, family: str, winner: str) -> pd.Series:
 
 
 def _extract_statistical_preds(output: dict[str, Any], winner: str) -> tuple[pd.Series, pd.Series, pd.Series | None, pd.Series | None]:
+    """Estrae predizioni statistical (scala trasformata e scala originale)."""
     val_pred = pd.Series(output[f"{winner}_val_pred"], copy=True)
     test_pred = pd.Series(output[f"{winner}_test_pred"], copy=True)
     val_orig = _invert_log_diff_segment(val_pred, output.get("original_series"), output.get("use_log1p", False), int(output.get("diff_order", 0)))
@@ -83,6 +90,7 @@ def _extract_statistical_preds(output: dict[str, Any], winner: str) -> tuple[pd.
 
 
 def _extract_ml_preds(output: dict[str, Any], winner: str) -> tuple[pd.Series, pd.Series, pd.Series | None, pd.Series | None]:
+    """Estrae predizioni ML (scala trasformata e scala originale)."""
     pred_series = output["pred_series"][winner]
     val_pred = pd.Series(pred_series["val"], copy=True)
     test_pred = pd.Series(pred_series["test"], copy=True)
@@ -92,6 +100,7 @@ def _extract_ml_preds(output: dict[str, Any], winner: str) -> tuple[pd.Series, p
 
 
 def _extract_neural_preds(output: dict[str, Any], winner: str) -> tuple[pd.Series, pd.Series, pd.Series | None, pd.Series | None]:
+    """Estrae predizioni neural (scala trasformata e scala originale)."""
     pred_series = output["pred_series"][winner]
     val_pred = pd.Series(pred_series["val"], copy=True)
     test_pred = pd.Series(pred_series["test"], copy=True)
@@ -105,7 +114,7 @@ def _build_winner_forecasts(
     ml_output: dict[str, Any],
     neural_output: dict[str, Any],
 ) -> pd.DataFrame:
-    """Build a merged original-scale forecast table for family winners."""
+    """Costruisce la tabella forecast unificata in scala originale dei vincitori."""
 
     stat_winner = str(statistical_output["winner"])
     ml_winner = str(ml_output["winner"])
@@ -142,7 +151,11 @@ def build_cross_family_comparison(
     ml_output: dict[str, Any],
     neural_output: dict[str, Any],
 ) -> dict[str, Any]:
-    """Build complete and winner-only cross-family comparison tables."""
+    """Costruisce tabelle complete e tabelle winner-only cross-family."""
+
+    # ------------------------------------------------------------------
+    # Tabella globale: tutti i modelli
+    # ------------------------------------------------------------------
 
     all_models = pd.concat(
         [
@@ -157,6 +170,10 @@ def build_cross_family_comparison(
     all_models = all_models.assign(rank_abs_mbe_val_global=all_models["abs_mbe_val_orig"].fillna(all_models["abs_mbe_val"]))
     all_models = all_models.sort_values(["rank_rmse_val_global", "rank_abs_mbe_val_global"], ascending=[True, True]).reset_index(drop=True)
 
+    # ------------------------------------------------------------------
+    # Tabella family winners e ranking globale
+    # ------------------------------------------------------------------
+
     family_winners = pd.DataFrame(
         [
             _winner_row(statistical_output["summary"], "statistical", str(statistical_output["winner"])),
@@ -168,6 +185,10 @@ def build_cross_family_comparison(
     family_winners = family_winners.assign(rank_abs_mbe_val_global=family_winners["abs_mbe_val_orig"].fillna(family_winners["abs_mbe_val"]))
     family_winners = family_winners.sort_values(["rank_rmse_val_global", "rank_abs_mbe_val_global"], ascending=[True, True]).reset_index(drop=True)
     family_winners.insert(0, "global_rank", np.arange(1, len(family_winners) + 1, dtype=int))
+
+    # ------------------------------------------------------------------
+    # Forecast unificati del global winner set
+    # ------------------------------------------------------------------
 
     winner_forecasts = _build_winner_forecasts(statistical_output, ml_output, neural_output)
     global_winner = family_winners.iloc[0]

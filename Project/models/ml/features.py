@@ -1,4 +1,4 @@
-"""Feature engineering and feature-selection utilities for Step 4."""
+"""Utility di feature engineering e feature selection per lo Step 4."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from sklearn.ensemble import RandomForestRegressor
 
 @dataclass(frozen=True)
 class LaggedDataset:
-    """Container for lagged supervised datasets by split."""
+    """Contenitore dei dataset supervisionati laggati per split."""
 
     X_train: pd.DataFrame
     y_train: pd.Series
@@ -30,10 +30,10 @@ def build_lagged_dataset(
     test: pd.Series,
     lookback: int,
 ) -> LaggedDataset:
-    """Build lagged supervised matrices for train/validation/test splits.
+    """Costruisce matrici laggate supervisionate per train/validation/test.
 
-    Validation and test rows are allowed to use lag history from previous splits,
-    which is required for realistic temporal forecasting.
+    Le righe di validation e test possono usare la storia precedente, condizione
+    necessaria per una previsione temporale realistica.
     """
     if lookback < 1:
         raise ValueError("lookback must be >= 1")
@@ -55,7 +55,7 @@ def build_lagged_dataset(
     for t in range(lookback, len(values)):
         target_index = idx[t]
         lag_window = values[t - lookback:t]
-        # lag_1 = most recent observation.
+        # lag_1 corrisponde all'osservazione piu recente.
         features = lag_window[::-1]
 
         if target_index in train_idx:
@@ -103,9 +103,9 @@ def select_features(
     n_select: int,
     random_state: int,
 ) -> tuple[list[str], pd.DataFrame]:
-    """Select informative lag features using RFE or model importance.
+    """Seleziona feature lag informative con RFE o importance model-based.
 
-    Returns selected feature names and a ranking/importance table.
+    Restituisce nomi feature selezionate e tabella ranking/importance.
     """
     method_norm = method.strip().lower()
     n_total = X_train.shape[1]
@@ -168,7 +168,7 @@ def build_model_feature_matrix(
     lagged: LaggedDataset,
     selected_features: list[str],
 ) -> LaggedDataset:
-    """Project lagged matrices onto the selected feature subset."""
+    """Proietta le matrici laggate sul sottoinsieme di feature selezionate."""
     cols = [c for c in selected_features if c in lagged.X_train.columns]
     if not cols:
         raise RuntimeError("No selected features are present in lagged dataset")
@@ -184,7 +184,7 @@ def build_model_feature_matrix(
 
 
 def last_window_from_series(series: pd.Series, lookback: int) -> np.ndarray:
-    """Return the last lookback values as lag vector [lag_1, lag_2, ...]."""
+    """Restituisce l'ultima finestra lookback come vettore [lag_1, lag_2, ...]."""
     tail = series.astype(float).to_numpy()[-lookback:]
     if len(tail) < lookback:
         raise ValueError("Series is shorter than lookback")

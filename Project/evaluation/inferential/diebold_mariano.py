@@ -1,4 +1,8 @@
-"""Pairwise Diebold-Mariano tests for forecast comparison."""
+"""Test Diebold-Mariano pairwise per il confronto forecast.
+
+Il modulo implementa il test DM con correzione Harvey-Leybourne-Newbold
+e costruisce la tabella inferenziale tra family winners.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +23,7 @@ def diebold_mariano_test(
     horizon: int = 1,
     power: int = 2,
 ) -> dict[str, float | int]:
-    """Compute the Harvey-Leybourne-Newbold corrected Diebold-Mariano statistic."""
+    """Calcola la statistica Diebold-Mariano con correzione HLN."""
 
     aligned = pd.concat(
         [
@@ -77,7 +81,11 @@ def build_diebold_mariano_table(
     winner_forecasts: pd.DataFrame,
     families: Iterable[str] = ("statistical", "ml", "neural"),
 ) -> pd.DataFrame:
-    """Build pairwise Diebold-Mariano results for family winners on the test set."""
+    """Costruisce i risultati pairwise Diebold-Mariano sullo split test."""
+
+    # ------------------------------------------------------------------
+    # Confronti pairwise tra family winners
+    # ------------------------------------------------------------------
 
     test_df = winner_forecasts.loc[winner_forecasts["split"] == "test"].copy()
     results: list[dict[str, object]] = []

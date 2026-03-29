@@ -1,7 +1,7 @@
-"""Shared configuration and utility functions for statistical models (Step 3).
+"""Configurazione condivisa e utility per i modelli statistici (Step 3).
 
-All items in this module are used by both SarimaRunner and HoltWintersRunner,
-keeping the individual model files free from duplication.
+Il modulo raccoglie metriche, validazioni, helper di inversione scala originale
+e configurazioni comuni usate dai runner statistici.
 """
 
 from __future__ import annotations
@@ -15,23 +15,23 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
 # ---------------------------------------------------------------------------
-# Metric utilities
+# Utility metriche
 # ---------------------------------------------------------------------------
 
 def _safe_mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Compute MAPE ignoring near-zero denominators."""
+    """Calcola il MAPE ignorando denominatori prossimi a zero."""
     denom = np.where(np.abs(y_true) < 1e-9, np.nan, np.abs(y_true))
     ape = np.abs((y_true - y_pred) / denom)
     return float(np.nanmean(ape) * 100.0)
 
 
 def _mean_bias_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Mean signed error (positive => model over-forecasting)."""
+    """Errore medio con segno (positivo => sovrastima media del modello)."""
     return float(np.nanmean(y_pred - y_true))
 
 
 def compute_metrics(y_true: pd.Series, y_pred: pd.Series | np.ndarray) -> dict[str, float]:
-    """Return RMSE/MAE/MAPE and bias metrics on aligned series."""
+    """Restituisce metriche RMSE/MAE/MAPE e bias sulla serie allineata."""
     pred = pd.Series(np.asarray(y_pred, dtype=float), index=y_true.index)
     yt = y_true.astype(float).to_numpy()
     yp = pred.astype(float).to_numpy()
@@ -45,7 +45,7 @@ def compute_metrics(y_true: pd.Series, y_pred: pd.Series | np.ndarray) -> dict[s
 
 
 def _compute_metrics_aligned(y_true: pd.Series, y_pred: pd.Series) -> dict[str, float]:
-    """Compute metrics after index alignment and NaN filtering."""
+    """Calcola metriche dopo allineamento indice e rimozione NaN."""
     y_true_num = pd.to_numeric(y_true, errors="coerce")
     y_pred_num = pd.to_numeric(y_pred, errors="coerce")
     aligned = pd.concat(
@@ -63,19 +63,19 @@ def _compute_metrics_aligned(y_true: pd.Series, y_pred: pd.Series) -> dict[str, 
 
 
 def _aicc(aic: float, n: int, k: int) -> float:
-    """Small-sample corrected AIC."""
+    """Calcola AIC corretto per campioni piccoli (AICc)."""
     if (n - k - 1) <= 0:
         return float("nan")
     return float(aic + (2.0 * k * (k + 1)) / (n - k - 1))
 
 
 # ---------------------------------------------------------------------------
-# Model configuration
+# Configurazione modello
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class StatisticalStepConfig:
-    """Configuration for the statistical model grid search (SARIMA + HW)."""
+    """Configurazione della grid search del blocco statistico."""
 
     p_values: tuple[int, ...] = (0, 1, 2)
     d_values: tuple[int, ...] = (2,)
@@ -91,11 +91,11 @@ class StatisticalStepConfig:
 
 
 # ---------------------------------------------------------------------------
-# Split validation helpers
+# Helper di validazione split
 # ---------------------------------------------------------------------------
 
 def validate_split(series: pd.Series, name: str) -> pd.Series:
-    """Validate and clean a time-series split."""
+    """Valida e pulisce uno split della serie temporale."""
     if not isinstance(series, pd.Series):
         raise TypeError(f"{name} must be a pandas Series")
     s = pd.to_numeric(series, errors="coerce").dropna().astype(float)
@@ -108,7 +108,7 @@ def validate_split(series: pd.Series, name: str) -> pd.Series:
 
 
 def validate_original_series(series: pd.Series | None) -> pd.Series | None:
-    """Validate and clean the original (untransformed) series, or return None."""
+    """Valida e pulisce la serie originale non trasformata, oppure restituisce None."""
     if series is None:
         return None
     if not isinstance(series, pd.Series):
@@ -122,11 +122,11 @@ def validate_original_series(series: pd.Series | None) -> pd.Series | None:
 
 
 # ---------------------------------------------------------------------------
-# Inverse-transform helpers (log1p + differencing)
+# Helper inversione trasformazioni (log1p + differencing)
 # ---------------------------------------------------------------------------
 
 def invert_diff2_log1p(pred_d2: pd.Series, seed_d1: float, seed_log: float) -> pd.Series:
-    """Invert double-differenced log1p predictions back to original scale."""
+    """Inverte previsioni in doppia differenza log1p riportandole in scala originale."""
     d1_pred = seed_d1 + pred_d2.cumsum()
     log_pred = seed_log + d1_pred.cumsum()
     return np.expm1(log_pred)
@@ -138,10 +138,10 @@ def build_original_scale_context(
     diff_order: int,
     val_start: Any,
 ) -> dict[str, Any] | None:
-    """Build the seed context needed to invert log1p+diff predictions.
+    """Costruisce il contesto seed necessario per invertire previsioni log1p+diff.
 
-    Returns None if inversion is not applicable (no original series, or
-    transformation is not log1p+diff).
+    Restituisce None quando l'inversione non e applicabile (serie originale
+    assente oppure trasformazione diversa da log1p+diff).
     """
     if original_series is None or not use_log1p or diff_order not in (1, 2):
         return None
@@ -174,7 +174,7 @@ def validation_original_metrics(
     orig_context: dict[str, Any] | None,
     diff_order: int,
 ) -> dict[str, float] | None:
-    """Compute validation metrics in original scale when inversion is available."""
+    """Calcola metriche di validazione in scala originale quando disponibili."""
     if orig_context is None:
         return None
 
@@ -195,14 +195,14 @@ def validation_original_metrics(
 
 
 # ---------------------------------------------------------------------------
-# Holt-Winters candidate configurations
+# Configurazioni candidate
 # ---------------------------------------------------------------------------
 
 def build_hw_candidate_configs(seasonal_period: int) -> list[dict[str, Any]]:
-    """Return the list of HW configurations to evaluate.
+    """Restituisce la lista delle configurazioni candidate da valutare.
 
-    When seasonal_period > 1 additive and multiplicative seasonal variants are
-    included; for annual/non-seasonal data only trend variants are evaluated.
+    Se seasonal_period > 1 include varianti stagionali additive e moltiplicative;
+    in caso non stagionale valuta solo varianti di trend.
     """
     if seasonal_period > 1:
         return [
@@ -221,18 +221,18 @@ def build_hw_candidate_configs(seasonal_period: int) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Index frequency utilities
+# Utility frequenza indice
 # ---------------------------------------------------------------------------
 
 def infer_seasonal_period_from_index(index: pd.Index) -> int:
-    """Infer seasonal period from datetime index frequency.
+    """Inferisce il periodo stagionale dalla frequenza dell'indice datetime.
 
-    Returns conservative defaults when frequency is unknown:
-    - monthly  -> 12
-    - quarterly -> 4
-    - weekly   -> 52
-    - daily    -> 7
-    - annual/unknown -> 1 (no seasonal component)
+    Usa default conservativi quando la frequenza non e nota:
+    - mensile -> 12
+    - trimestrale -> 4
+    - settimanale -> 52
+    - giornaliera -> 7
+    - annuale/sconosciuta -> 1 (nessuna stagionalita)
     """
     if not isinstance(index, pd.DatetimeIndex):
         return 1
