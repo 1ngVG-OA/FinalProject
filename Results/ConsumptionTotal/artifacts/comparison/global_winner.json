@@ -1,7 +1,7 @@
 {
-  "family":"ml",
-  "model":"random_forest",
+  "family":"neural",
+  "model":"mlp",
   "global_rank":1,
-  "rank_rmse_val_global":2283.4288759079,
-  "rank_abs_mbe_val_global":1480.7744237884
+  "rank_rmse_val_global":4563.511175293,
+  "rank_abs_mbe_val_global":3458.1859330967
 }

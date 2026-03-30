@@ -4,8 +4,9 @@
     "lstm"
   ],
   "lookback_values":[
-    6,
-    12
+    2,
+    4,
+    6
   ],
   "mlp_hidden_sizes":[
     8,
@@ -30,8 +31,8 @@
     0.0
   ],
   "batch_sizes":[
-    16,
-    32
+    8,
+    16
   ],
   "learning_rates":[
     0.001

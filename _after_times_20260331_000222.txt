@@ -1,0 +1,6 @@
+﻿Results/ConsumptionTotal/metrics/statistical/summary.csv|2026-03-31 00:05:24
+Results/ConsumptionTotal/plots/statistical/forecast_comparison.png|2026-03-31 00:05:25
+Results/ConsumptionTotal/metrics/ml/summary.csv|2026-03-31 00:06:39
+Results/ConsumptionTotal/artifacts/ml/config.json|2026-03-31 00:06:39
+Results/ConsumptionTotal/metrics/neural/summary.csv|2026-03-31 00:06:46
+Results/ConsumptionTotal/artifacts/comparison/global_winner.json|2026-03-31 00:06:48

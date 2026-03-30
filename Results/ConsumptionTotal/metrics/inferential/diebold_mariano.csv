@@ -1,4 +1,4 @@
 family_a,family_b,loss_function,horizon,n_obs,mean_loss_diff,dm_stat,p_value,interpretation
-statistical,ml,squared_error,1,13,-1379960380.647086,-2.6858006624640374,0.019823187143346455,statistical_better
-statistical,neural,squared_error,1,13,-1287457640.4537554,-2.6105447911042585,0.022778723908908016,statistical_better
-ml,neural,squared_error,1,13,92502740.19333011,2.849813159883406,0.014627847123350397,neural_better
+statistical,ml,squared_error,1,13,286239947.6703914,3.647832124973708,0.0033397937347011976,ml_better
+statistical,neural,squared_error,1,13,304076206.9546152,3.687113108570594,0.0031081333029206186,neural_better
+ml,neural,squared_error,1,13,17836259.28422384,0.2504586543782989,0.8064694057688079,no_significant_difference

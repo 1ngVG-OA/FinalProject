@@ -115,6 +115,8 @@ class MLStepConfig:
     lookback_values: tuple[int, ...] = (6, 8, 12)
     feature_selection: str = "importance"  # one of: none, rfe, importance
     selected_feature_count: int = 6
+    cv_folds: int | None = None
+    overfitting_lambda: float = 0.0
     random_state: int = 42
     use_xgboost: bool = True
 
@@ -135,6 +137,12 @@ class MLStepConfig:
     xgb_max_depth: tuple[int, ...] = (2, 3, 4)
     xgb_subsample: tuple[float, ...] = (0.8, 1.0)
     xgb_colsample_bytree: tuple[float, ...] = (0.8, 1.0)
+
+    def __post_init__(self) -> None:
+        if self.cv_folds is not None and int(self.cv_folds) < 2:
+            raise ValueError("cv_folds must be None or >= 2")
+        if float(self.overfitting_lambda) < 0.0:
+            raise ValueError("overfitting_lambda must be >= 0")
 
     @staticmethod
     def validate_split(series: pd.Series, name: str) -> pd.Series:

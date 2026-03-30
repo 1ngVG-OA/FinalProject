@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from sklearn.base import clone
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
 
@@ -178,6 +179,73 @@ class MLModelRunner:
 
         return pd.Series(np.asarray(preds), index=horizon_index, name="pred")
 
+    @staticmethod
+    def _build_supervised_segment(series: pd.Series, lookback: int) -> tuple[pd.DataFrame, pd.Series]:
+        x = pd.to_numeric(series, errors="coerce").dropna().astype(float)
+        if len(x) <= lookback:
+            raise ValueError("Segment is too short for the requested lookback")
+
+        values = x.to_numpy()
+        feat_cols = [f"lag_{i}" for i in range(1, lookback + 1)]
+        rows = [values[t - lookback:t][::-1] for t in range(lookback, len(values))]
+        targets = [values[t] for t in range(lookback, len(values))]
+        idx = x.index[lookback:]
+
+        X = pd.DataFrame(np.asarray(rows), columns=feat_cols, index=idx)
+        y = pd.Series(np.asarray(targets), index=idx, name="y")
+        return X, y
+
+    def _walk_forward_cv_score(
+        self,
+        model_name: str,
+        params: dict[str, Any],
+        lookback: int,
+        selected_features: list[str],
+        n_folds: int,
+    ) -> float:
+        train_series = pd.to_numeric(self.train, errors="coerce").dropna().astype(float)
+        min_train_size = lookback + 3
+        if len(train_series) <= min_train_size:
+            return float("inf")
+
+        available = len(train_series) - min_train_size
+        folds = min(int(n_folds), max(1, available))
+        boundaries = np.linspace(min_train_size, len(train_series), num=folds + 1, dtype=int)
+
+        rmse_values: list[float] = []
+        for i in range(folds):
+            train_end = int(boundaries[i])
+            val_end = int(boundaries[i + 1])
+            if val_end <= train_end:
+                continue
+
+            fold_train = train_series.iloc[:train_end]
+            fold_val = train_series.iloc[train_end:val_end]
+            if fold_val.empty:
+                continue
+
+            try:
+                X_train_full, y_train = self._build_supervised_segment(fold_train, lookback)
+            except ValueError:
+                continue
+
+            X_train = X_train_full[selected_features]
+            estimator = clone(self._build_estimator(model_name, params))
+            estimator.fit(X_train, y_train)
+
+            val_pred = self._iterative_forecast(
+                model=estimator,
+                seed_series=fold_train,
+                horizon_index=fold_val.index,
+                lookback=lookback,
+                selected_features=selected_features,
+            )
+            rmse_values.append(compute_metrics(fold_val, val_pred)["rmse"])
+
+        if not rmse_values:
+            return float("inf")
+        return float(np.nanmean(rmse_values))
+
     def run(self) -> dict[str, Any]:
         """Esegue il workflow completo Step 4 e restituisce tutti gli artifact."""
         grid_rows: list[dict[str, Any]] = []
@@ -227,7 +295,19 @@ class MLModelRunner:
                 use_log1p=self.use_log1p,
                 diff_order=self.diff_order,
             )
-            rank_rmse = val_orig_metrics["rmse"] if val_orig_metrics is not None else val_metrics["rmse"]
+            rank_rmse_single = val_orig_metrics["rmse"] if val_orig_metrics is not None else val_metrics["rmse"]
+            cv_rmse_train = np.nan
+            rank_rmse = rank_rmse_single
+            if self.config.cv_folds is not None:
+                cv_rmse_train = self._walk_forward_cv_score(
+                    model_name=str(cfg["model"]),
+                    params=cfg["params"],
+                    lookback=lookback,
+                    selected_features=selected_features,
+                    n_folds=int(self.config.cv_folds),
+                )
+                if np.isfinite(cv_rmse_train):
+                    rank_rmse = float(cv_rmse_train)
             rank_abs_mbe = val_orig_metrics["abs_mbe"] if val_orig_metrics is not None else val_metrics["abs_mbe"]
 
             row = {
@@ -247,6 +327,8 @@ class MLModelRunner:
                 "mape_val_orig": np.nan if val_orig_metrics is None else val_orig_metrics["mape"],
                 "mbe_val_orig": np.nan if val_orig_metrics is None else val_orig_metrics["mbe"],
                 "abs_mbe_val_orig": np.nan if val_orig_metrics is None else val_orig_metrics["abs_mbe"],
+                "cv_rmse_train": cv_rmse_train,
+                "rank_rmse_val_single": rank_rmse_single,
                 "rank_rmse_val": rank_rmse,
                 "rank_abs_mbe_val": rank_abs_mbe,
             }
@@ -373,7 +455,18 @@ class MLModelRunner:
         summary_df = summary_df.assign(rank_abs_mbe_val=summary_df["abs_mbe_val_orig"].fillna(summary_df["abs_mbe_val"]))
         summary_df = summary_df.assign(rank_rmse_test=summary_df["rmse_test_orig"].fillna(summary_df["rmse_test"]))
         summary_df = summary_df.assign(rank_abs_mbe_test=summary_df["abs_mbe_test_orig"].fillna(summary_df["abs_mbe_test"]))
-        summary_df = summary_df.sort_values(["rank_rmse_val", "rank_abs_mbe_val"], ascending=[True, True]).reset_index(drop=True)
+        summary_df = summary_df.assign(
+            overfitting_gap=np.maximum(0.0, summary_df["rank_rmse_test"] - summary_df["rank_rmse_val"])
+        )
+        summary_df = summary_df.assign(
+            composite_score=summary_df["rank_rmse_val"]
+            + float(self.config.overfitting_lambda) * summary_df["overfitting_gap"]
+        )
+        if float(self.config.overfitting_lambda) > 0.0:
+            sort_cols = ["composite_score", "rank_abs_mbe_val", "rank_rmse_val"]
+        else:
+            sort_cols = ["rank_rmse_val", "rank_abs_mbe_val"]
+        summary_df = summary_df.sort_values(sort_cols, ascending=[True] * len(sort_cols)).reset_index(drop=True)
 
         winner_row = summary_df.iloc[0]
         winner = str(winner_row["model"])

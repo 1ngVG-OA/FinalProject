@@ -1,10 +1,13 @@
 {
   "lookback_values":[
-    6,
-    12
+    2,
+    3,
+    4
   ],
   "feature_selection":"importance",
-  "selected_feature_count":6,
+  "selected_feature_count":3,
+  "cv_folds":3,
+  "overfitting_lambda":0.5,
   "random_state":42,
   "use_xgboost":false,
   "dt_max_depth":[
@@ -19,17 +22,19 @@
     200
   ],
   "rf_max_depth":[
-    6,
+    5,
     null
   ],
   "rf_min_samples_leaf":[
-    1
+    1,
+    2
   ],
   "gbr_n_estimators":[
-    300
+    200
   ],
   "gbr_learning_rate":[
-    0.05
+    0.05,
+    0.1
   ],
   "gbr_max_depth":[
     2,
