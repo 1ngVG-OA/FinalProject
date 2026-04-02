@@ -112,13 +112,22 @@ class TimeSeriesPreprocessor:
 
         if (series <= -1.0).any():
             raise ValueError("log1p requires all values > -1")
-        return np.log1p(series)
+        return pd.Series(np.log1p(series.to_numpy(dtype=float)), index=series.index, name=series.name)
 
     # Trasformazione di potenza che preserva il segno, utile per stabilizzare la varianza in serie con valori negativi o vicino a zero, configurabile tramite power_exponent.
     @staticmethod
     def _apply_power(series: pd.Series, exponent: float) -> pd.Series:
 
-        return np.sign(series) * (np.abs(series) ** exponent) 
+        arr = np.sign(series.to_numpy(dtype=float)) * (np.abs(series.to_numpy(dtype=float)) ** float(exponent))
+        return pd.Series(arr, index=series.index, name=series.name)
+
+    @staticmethod
+    def _scalar_int(value: Any) -> int:
+        return int(np.asarray([value], dtype=float)[0])
+
+    @staticmethod
+    def _scalar_float(value: Any) -> float:
+        return float(np.asarray([value], dtype=float)[0])
 
     # Trasformazioni deterministiche applicate alla serie, come logaritmo, potenza e differenziazione, in modo da preparare i dati per i test di stazionarietà e la modellazione predittiva. 
     # Le trasformazioni vengono applicate in un ordine specifico (log1p -> power -> differencing) e sono configurabili tramite TransformConfig.  
@@ -213,7 +222,16 @@ class TimeSeriesPreprocessor:
         if len(x) < 12:
             raise ValueError("series too short for robust stationarity tests")
 
-        adf_stat, adf_p, adf_lags, adf_n, adf_cv, _ = adfuller(x, autolag="AIC")
+        adf_res = adfuller(x, autolag="AIC")
+        adf_stat = TimeSeriesPreprocessor._scalar_float(adf_res[0])
+        adf_p = TimeSeriesPreprocessor._scalar_float(adf_res[1])
+        adf_lags = TimeSeriesPreprocessor._scalar_int(adf_res[2])
+        adf_n = TimeSeriesPreprocessor._scalar_int(adf_res[3])
+        adf_cv = {}
+        if len(adf_res) > 4 and isinstance(adf_res[4], dict):
+            adf_cv = adf_res[4]
+        elif len(adf_res) > 2 and isinstance(adf_res[2], dict):
+            adf_cv = adf_res[2]
 
         kpss_warning = ""
         try:
@@ -229,10 +247,10 @@ class TimeSeriesPreprocessor:
 
         result: dict[str, Any] = {
             "n": int(len(x)),
-            "adf_stat": float(adf_stat),
-            "adf_pvalue": float(adf_p),
-            "adf_used_lags": int(adf_lags),
-            "adf_nobs": int(adf_n),
+            "adf_stat": adf_stat,
+            "adf_pvalue": adf_p,
+            "adf_used_lags": adf_lags,
+            "adf_nobs": adf_n,
             "adf_stationary_at_05": bool(adf_p < 0.05),
             "kpss_stat": float(kpss_stat) if not pd.isna(kpss_stat) else np.nan,
             "kpss_pvalue": float(kpss_p) if not pd.isna(kpss_p) else np.nan,

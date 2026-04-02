@@ -69,7 +69,7 @@ def save_neural_plots(output: dict[str, Any], out_dir: Path, suffix: str | None 
     if isinstance(original_series, pd.Series) and original_series is not None and preprocessing_config is not None:
         raw = pd.to_numeric(original_series, errors="coerce").dropna().astype(float)
         fig, ax = plt.subplots(figsize=(14, 5))
-        ax.plot(raw.index, raw.values, color="black", linewidth=2.2, label="serie_originale", zorder=5)
+        ax.plot(raw.index, raw.to_numpy(dtype=float), color="black", linewidth=2.2, label="serie_originale", zorder=5)
         ax.axvspan(int(val_actual.index.min()), int(val_actual.index.max()) + 1, alpha=0.07, color="tab:blue", label="_nolegend_")
         ax.axvspan(int(test_actual.index.min()), int(test_actual.index.max()) + 1, alpha=0.09, color="tab:orange", label="_nolegend_")
 
@@ -87,8 +87,21 @@ def save_neural_plots(output: dict[str, Any], out_dir: Path, suffix: str | None 
                 continue
 
             plotted_any = True
-            ax.plot(val_orig.index, val_orig.values, color=color, linestyle="--", linewidth=1.6, label=f"{model_name}_val_orig")
-            ax.plot(test_orig.index, test_orig.values, color=color, linewidth=2.0, label=f"{model_name}_test_orig")
+            ax.plot(
+                val_orig.index,
+                val_orig.to_numpy(dtype=float),
+                color=color,
+                linestyle="--",
+                linewidth=1.6,
+                label=f"{model_name}_val_orig",
+            )
+            ax.plot(
+                test_orig.index,
+                test_orig.to_numpy(dtype=float),
+                color=color,
+                linewidth=2.0,
+                label=f"{model_name}_test_orig",
+            )
 
         if plotted_any:
             ax.set_title("Step 5 - Neural Forecasts on Original Scale")

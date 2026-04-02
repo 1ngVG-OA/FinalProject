@@ -164,7 +164,7 @@ class MLModelRunner:
         selected_features: list[str],
     ) -> pd.Series:
         """Genera forecast ricorsivo multi-step sull'orizzonte richiesto."""
-        history = list(seed_series.astype(float).to_numpy())
+        history: list[float] = [float(v) for v in seed_series.astype(float).to_numpy()]
         preds = []
 
         for _ in range(len(horizon_index)):

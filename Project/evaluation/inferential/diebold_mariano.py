@@ -45,9 +45,9 @@ def diebold_mariano_test(
 
     err_a = aligned["actual"] - aligned["pred_a"]
     err_b = aligned["actual"] - aligned["pred_b"]
-    loss_a = np.abs(err_a) ** power
-    loss_b = np.abs(err_b) ** power
-    d = (loss_a - loss_b).to_numpy(dtype=float)
+    loss_a = err_a.abs() ** power
+    loss_b = err_b.abs() ** power
+    d = np.asarray(loss_a - loss_b, dtype=float)
     mean_d = float(np.mean(d))
 
     gamma0 = float(np.var(d, ddof=1))

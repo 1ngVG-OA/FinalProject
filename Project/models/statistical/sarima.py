@@ -112,7 +112,7 @@ class SarimaRunner:
                     enforce_stationarity=self.config.enforce_stationarity,
                     enforce_invertibility=self.config.enforce_invertibility,
                 )
-                fit = model.fit(disp=False, maxiter=self.config.maxiter)
+                fit: Any = model.fit(disp=False, maxiter=self.config.maxiter)
                 pred_val = pd.Series(
                     np.asarray(fit.forecast(steps=len(self.validation))),
                     index=self.validation.index,

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Any, Iterable, Literal
 import json
 
 import numpy as np
@@ -77,6 +77,10 @@ BACKTEST_COMPOSITE_LAMBDA: float = 0.5
 BACKTEST_MAXITER: int = 120
 DRIFT_GUARD_MAX_ABS_MBE_ORIG: float = 2000.0
 
+
+def _to_float(value: object) -> float:
+    return float(np.asarray([value], dtype=float)[0])
+
 # Funzione che penalizza le configurazioni che mostrano un alto bias di previsione (mbe) sulla serie originale durante un backtest SARIMA, escludendole dalla selezione finale per il profilo "statistical" al fine di mitigare potenziali problemi di drift quando si invertono le trasformazioni.
 def _candidate_bias_penalty_orig(
     original_series: pd.Series,
@@ -95,21 +99,21 @@ def _candidate_bias_penalty_orig(
         return float("nan")
 
     val_start = val_index.min()
-    x_log = np.log1p(raw)
+    x_log = pd.Series(np.log1p(raw.to_numpy(dtype=float)), index=raw.index, name="log1p")
     pred_zero = pd.Series(0.0, index=val_index)
 
     try:
         if cfg.diff_order == 1:
             seed_log = float(x_log[x_log.index < val_start].iloc[-1])
             log_pred = seed_log + pred_zero.cumsum()
-            pred_orig = np.expm1(log_pred)
+            pred_orig = pd.Series(np.expm1(log_pred.to_numpy(dtype=float)), index=val_index, name="pred_orig")
         else:
             x_d1 = x_log.diff().dropna()
             seed_d1 = float(x_d1[x_d1.index < val_start].iloc[-1])
             seed_log = float(x_log[x_log.index < val_start].iloc[-1])
             d1_pred = seed_d1 + pred_zero.cumsum()
             log_pred = seed_log + d1_pred.cumsum()
-            pred_orig = np.expm1(log_pred)
+            pred_orig = pd.Series(np.expm1(log_pred.to_numpy(dtype=float)), index=val_index, name="pred_orig")
     except Exception:
         return float("nan")
 
@@ -157,7 +161,7 @@ def _run_candidate_stat_backtest(
                         enforce_stationarity=False,
                         enforce_invertibility=False,
                     )
-                    fit = model.fit(disp=False, maxiter=BACKTEST_MAXITER)
+                    fit: Any = model.fit(disp=False, maxiter=BACKTEST_MAXITER)
                     pred_val = pd.Series(
                         np.asarray(fit.forecast(steps=len(validation))),
                         index=validation.index,
@@ -183,7 +187,7 @@ def _run_candidate_stat_backtest(
                     )
                     score = rmse_rank + BACKTEST_COMPOSITE_LAMBDA * abs_mbe_rank
 
-                    row = {
+                    row: dict[str, Any] = {
                         "best_order": str(order),
                         "best_seasonal_order": str(seasonal_order),
                         "aicc_best": _aicc(float(fit.aic), n=len(train), k=int(fit.params.shape[0])),
@@ -201,17 +205,21 @@ def _run_candidate_stat_backtest(
                         "score_backtest": score,
                     }
 
+                    best_score = float("inf") if best_row is None else _to_float(best_row["score_backtest"])
+                    best_rmse = float("inf") if best_row is None else _to_float(best_row["rank_rmse_backtest"])
+                    best_aicc = float("inf") if best_row is None else _to_float(best_row["aicc_best"])
+
                     if (
                         best_row is None
-                        or row["score_backtest"] < best_row["score_backtest"] - 1e-12
+                        or float(row["score_backtest"]) < best_score - 1e-12
                         or (
-                            abs(row["score_backtest"] - best_row["score_backtest"]) <= 1e-12
-                            and row["rank_rmse_backtest"] < best_row["rank_rmse_backtest"] - 1e-12
+                            abs(float(row["score_backtest"]) - best_score) <= 1e-12
+                            and float(row["rank_rmse_backtest"]) < best_rmse - 1e-12
                         )
                         or (
-                            abs(row["score_backtest"] - best_row["score_backtest"]) <= 1e-12
-                            and abs(row["rank_rmse_backtest"] - best_row["rank_rmse_backtest"]) <= 1e-12
-                            and row["aicc_best"] < best_row["aicc_best"]
+                            abs(float(row["score_backtest"]) - best_score) <= 1e-12
+                            and abs(float(row["rank_rmse_backtest"]) - best_rmse) <= 1e-12
+                            and float(row["aicc_best"]) < best_aicc
                         )
                     ):
                         best_row = row

@@ -8,13 +8,9 @@ import random
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-from Project.models.ml.model_config import (
-    compute_metrics,
-    compute_metrics_aligned,
-    invert_diff2_log1p,
-)
 from Project.preprocessing.time_series_preprocessor import PreprocessingConfig, TimeSeriesPreprocessor
 
 
@@ -45,6 +41,60 @@ def resolve_torch_device(device_name: str) -> torch.device:
     if requested == "cuda" and torch.cuda.is_available():
         return torch.device("cuda")
     return torch.device("cpu")
+
+
+# ------------------------------------------------------------------
+# Utility metriche e inversione trasformazioni
+# ------------------------------------------------------------------
+
+def safe_mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Calcola il MAPE ignorando denominatori prossimi a zero."""
+    denom = np.where(np.abs(y_true) < 1e-9, np.nan, np.abs(y_true))
+    ape = np.abs((y_true - y_pred) / denom)
+    return float(np.nanmean(ape) * 100.0)
+
+
+def mean_bias_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Errore medio con segno (positivo => sovrastima media)."""
+    return float(np.nanmean(y_pred - y_true))
+
+
+def compute_metrics(y_true: pd.Series, y_pred: pd.Series | np.ndarray) -> dict[str, float]:
+    """Restituisce RMSE/MAE/MAPE/MBE su indici allineati."""
+    pred = pd.Series(np.asarray(y_pred, dtype=float), index=y_true.index)
+    yt = y_true.astype(float).to_numpy()
+    yp = pred.astype(float).to_numpy()
+    mbe = mean_bias_error(yt, yp)
+    return {
+        "rmse": float(np.sqrt(mean_squared_error(yt, yp))),
+        "mae": float(mean_absolute_error(yt, yp)),
+        "mape": safe_mape(yt, yp),
+        "mbe": mbe,
+        "abs_mbe": float(abs(mbe)),
+    }
+
+
+def compute_metrics_aligned(y_true: pd.Series, y_pred: pd.Series) -> dict[str, float]:
+    """Calcola le metriche dopo allineamento indice e filtro NaN."""
+    y_true_num = pd.to_numeric(y_true, errors="coerce")
+    y_pred_num = pd.to_numeric(y_pred, errors="coerce")
+    aligned = pd.concat([y_true_num.rename("y_true"), y_pred_num.rename("y_pred")], axis=1).dropna()
+    if aligned.empty:
+        return {
+            "rmse": float("nan"),
+            "mae": float("nan"),
+            "mape": float("nan"),
+            "mbe": float("nan"),
+            "abs_mbe": float("nan"),
+        }
+    return compute_metrics(aligned["y_true"], aligned["y_pred"])
+
+
+def invert_diff2_log1p(pred_d2: pd.Series, seed_d1: float, seed_log: float) -> pd.Series:
+    """Inverte previsioni da diff2(log1p(y)) alla scala originale."""
+    d1_pred = seed_d1 + pred_d2.cumsum()
+    log_pred = seed_log + d1_pred.cumsum()
+    return pd.Series(np.expm1(log_pred.to_numpy(dtype=float)), index=pred_d2.index, name="pred_orig")
 
 
 def _fit_scaler(train_series: pd.Series, scale_method: str) -> StandardScaler | MinMaxScaler | None:
@@ -106,7 +156,7 @@ def invert_preprocessed_segment(
     if not transform_cfg.use_log1p:
         return None
 
-    x_log = np.log1p(raw)
+    x_log = pd.Series(np.log1p(raw.to_numpy(dtype=float)), index=raw.index, name="log1p")
     seg_start = pred_transformed.index.min()
 
     if transform_cfg.diff_order == 1:
@@ -114,8 +164,9 @@ def invert_preprocessed_segment(
             seed_log = float(x_log[x_log.index < seg_start].iloc[-1])
         except Exception:
             return None
+        pred_log = seed_log + pred_transformed.cumsum()
         return pd.Series(
-            np.expm1(seed_log + pred_transformed.cumsum()).to_numpy(),
+            np.expm1(pred_log.to_numpy(dtype=float)),
             index=pred_transformed.index,
         )
 
@@ -126,10 +177,7 @@ def invert_preprocessed_segment(
             seed_log = float(x_log[x_log.index < seg_start].iloc[-1])
         except Exception:
             return None
-        return pd.Series(
-            invert_diff2_log1p(pred_transformed, seed_d1, seed_log).to_numpy(),
-            index=pred_transformed.index,
-        )
+        return invert_diff2_log1p(pred_transformed, seed_d1, seed_log)
 
     return None
 

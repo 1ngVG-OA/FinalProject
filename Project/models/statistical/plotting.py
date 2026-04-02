@@ -91,7 +91,7 @@ def save_statistical_plots(
         and diff_order in (1, 2)
     ):
         raw = pd.to_numeric(original_series, errors="coerce").dropna().astype(float)
-        x_log = np.log1p(raw)
+        x_log = pd.Series(np.log1p(raw.to_numpy(dtype=float)), index=raw.index, name="log1p")
 
         val_start = int(val_idx.min())
         test_start = int(test_idx.min())
@@ -100,8 +100,18 @@ def save_statistical_plots(
             seed_log_val = float(x_log[x_log.index < val_start].iloc[-1])
             seed_log_test = float(x_log[x_log.index < test_start].iloc[-1])
 
-            sarima_val_orig = np.expm1(seed_log_val + output["sarima_val_pred"].cumsum())
-            sarima_test_orig = np.expm1(seed_log_test + output["sarima_test_pred"].cumsum())
+            val_log_pred = seed_log_val + output["sarima_val_pred"].cumsum()
+            test_log_pred = seed_log_test + output["sarima_test_pred"].cumsum()
+            sarima_val_orig = pd.Series(
+                np.expm1(val_log_pred.to_numpy(dtype=float)),
+                index=output["sarima_val_pred"].index,
+                name="sarima_val_orig",
+            )
+            sarima_test_orig = pd.Series(
+                np.expm1(test_log_pred.to_numpy(dtype=float)),
+                index=output["sarima_test_pred"].index,
+                name="sarima_test_orig",
+            )
         else:
             x_d1 = x_log.diff().dropna()
             seed_d1_val = float(x_d1[x_d1.index < val_start].iloc[-1])
@@ -113,12 +123,25 @@ def save_statistical_plots(
             sarima_test_orig = invert_diff2_log1p(output["sarima_test_pred"], seed_d1_test, seed_log_test)
 
         fig, ax = plt.subplots(figsize=(14, 5))
-        ax.plot(raw.index, raw.values, color="black", linewidth=2.2, label="serie_originale", zorder=4)
+        ax.plot(raw.index, raw.to_numpy(dtype=float), color="black", linewidth=2.2, label="serie_originale", zorder=4)
         ax.axvspan(int(val_idx.min()), int(val_idx.max()) + 1, alpha=0.07, color="tab:blue", label="_nolegend_")
         ax.axvspan(int(test_idx.min()), int(test_idx.max()) + 1, alpha=0.09, color="tab:orange", label="_nolegend_")
 
-        ax.plot(sarima_val_orig.index, sarima_val_orig.values, color="tab:blue", linestyle="--", linewidth=1.8, label="sarima_val_orig")
-        ax.plot(sarima_test_orig.index, sarima_test_orig.values, color="tab:blue", linewidth=2.2, label="sarima_test_orig")
+        ax.plot(
+            sarima_val_orig.index,
+            sarima_val_orig.to_numpy(dtype=float),
+            color="tab:blue",
+            linestyle="--",
+            linewidth=1.8,
+            label="sarima_val_orig",
+        )
+        ax.plot(
+            sarima_test_orig.index,
+            sarima_test_orig.to_numpy(dtype=float),
+            color="tab:blue",
+            linewidth=2.2,
+            label="sarima_test_orig",
+        )
 
         ax.set_title("Step 3 - SARIMA Forecasts on Original Scale")
         ax.set_xlabel("Time")

@@ -38,9 +38,9 @@ def _invert_log_diff_segment(
         return pred
 
     if diff_order == 0:
-        return pd.Series(np.expm1(pred.to_numpy()), index=pred.index)
+        return pd.Series(np.expm1(pred.to_numpy(dtype=float)), index=pred.index, name="pred_orig")
 
-    x_log = np.log1p(raw)
+    x_log = pd.Series(np.log1p(raw.to_numpy(dtype=float)), index=raw.index, name="log1p")
     seg_start = pred.index.min()
 
     if diff_order == 1:
@@ -48,7 +48,8 @@ def _invert_log_diff_segment(
         if seed_candidates.empty:
             return None
         seed_log = float(seed_candidates.iloc[-1])
-        return pd.Series(np.expm1(seed_log + pred.cumsum()).to_numpy(), index=pred.index)
+        pred_log = seed_log + pred.cumsum()
+        return pd.Series(np.expm1(pred_log.to_numpy(dtype=float)), index=pred.index, name="pred_orig")
 
     if diff_order == 2:
         x_d1 = x_log.diff().dropna()
@@ -58,7 +59,7 @@ def _invert_log_diff_segment(
             return None
         seed_d1 = float(seed_d1_candidates.iloc[-1])
         seed_log = float(seed_log_candidates.iloc[-1])
-        return pd.Series(invert_diff2_log1p(pred, seed_d1, seed_log).to_numpy(), index=pred.index)
+        return invert_diff2_log1p(pred, seed_d1, seed_log)
 
     return None
 
@@ -124,9 +125,20 @@ def _build_winner_forecasts(
     _, _, ml_val_orig, ml_test_orig = _extract_ml_preds(ml_output, ml_winner)
     _, _, neural_val_orig, neural_test_orig = _extract_neural_preds(neural_output, neural_winner)
 
+    if any(x is None for x in (stat_val_orig, stat_test_orig, ml_val_orig, ml_test_orig, neural_val_orig, neural_test_orig)):
+        raise ValueError("Original-scale inversion failed for at least one winner forecast")
+    # Dopo la guardia su None, questi assert rendono esplicito (a runtime e per il type-checker)
+    # che le serie invertite esistono, evitando accessi ambigui a reindex/to_numpy nelle righe successive.
+    assert stat_val_orig is not None and stat_test_orig is not None
+    assert ml_val_orig is not None and ml_test_orig is not None
+    assert neural_val_orig is not None and neural_test_orig is not None
+
     val_index = statistical_output["validation_actual"].index
     test_index = statistical_output["test_actual"].index
-    raw = pd.to_numeric(statistical_output.get("original_series"), errors="coerce").dropna().astype(float)
+    original_series = statistical_output.get("original_series")
+    if not isinstance(original_series, pd.Series):
+        raise TypeError("statistical_output['original_series'] must be a pandas Series")
+    raw = pd.to_numeric(original_series, errors="coerce").dropna().astype(float)
 
     comparison = pd.DataFrame(
         {

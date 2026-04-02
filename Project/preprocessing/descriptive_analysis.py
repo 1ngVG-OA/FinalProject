@@ -46,6 +46,16 @@ def _parse_istat_number(value: str) -> float:
         return np.nan
 
 
+def _to_float_scalar(value: object) -> float:
+    """Estrae uno scalare float da output eventualmente annidati (tuple/list/array)."""
+    current = value
+    while isinstance(current, (tuple, list, np.ndarray, pd.Series, pd.Index)):
+        if len(current) == 0:
+            return float("nan")
+        current = current[0]
+    return float(np.asarray([current], dtype=float)[0])
+
+
 # ------------------------------------------------------------------
 # Caricamento serie target
 # ------------------------------------------------------------------
@@ -181,8 +191,15 @@ def _trend_validation(series: pd.Series) -> pd.DataFrame:
     values = x.to_numpy(dtype=float)
     # Utilizza scipy.stats.linregress per calcolare i parametri della regressione lineare (slope, intercept) e le statistiche di significatività (p-value, r-squared).
     # Calcola anche il coefficiente di correlazione di Spearman, che è una misura non parametrica della correlazione monotona tra anni e valori, utile per identificare trend non lineari.
-    slope, intercept, r_value, p_value, std_err = stats.linregress(years, values)
-    spearman_rho, spearman_p = stats.spearmanr(years, values)
+    linreg_res = stats.linregress(years, values)
+    slope = _to_float_scalar(linreg_res[0])
+    intercept = _to_float_scalar(linreg_res[1])
+    r_value = _to_float_scalar(linreg_res[2])
+    p_value = _to_float_scalar(linreg_res[3])
+    std_err = _to_float_scalar(linreg_res[4])
+    spearman_res = stats.spearmanr(years, values)
+    spearman_rho = _to_float_scalar(spearman_res[0])
+    spearman_p = _to_float_scalar(spearman_res[1])
     
     # Calcola la distribuzione dei cambiamenti anno su anno (YoY) per valutare la direzione del trend e la sua stabilità.
     diff = x.diff().dropna()
@@ -196,16 +213,16 @@ def _trend_validation(series: pd.Series) -> pd.DataFrame:
                 "n_observations": int(len(x)),
                 "start_year": int(x.index.min()),
                 "end_year": int(x.index.max()),
-                "slope_per_year": float(slope),
-                "slope_p_value": float(p_value),
+                "slope_per_year": slope,
+                "slope_p_value": p_value,
                 "r_squared": float(r_value**2),
-                "spearman_rho": float(spearman_rho),
-                "spearman_p_value": float(spearman_p),
+                "spearman_rho": spearman_rho,
+                "spearman_p_value": spearman_p,
                 "positive_yoy_share": positive_share,
                 "negative_yoy_share": negative_share,
                 "zero_yoy_share": zero_share,
-                "intercept": float(intercept),
-                "slope_std_err": float(std_err),
+                "intercept": intercept,
+                "slope_std_err": std_err,
             }
         ]
     )
@@ -278,7 +295,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
 
     # 0) Serie temporale base con line plot per visualizzare l'andamento generale della serie nel tempo.
     fig, ax = plt.subplots(figsize=(12, 5))
-    ax.plot(x.index, x.values, color="tab:blue", linewidth=2)
+    ax.plot(x.index, x.to_numpy(dtype=float), color="tab:blue", linewidth=2)
     series_label = str(series.name or "target_series").replace("_", " ").strip()
     ax.set_title(f"Base Time Series - {series_label}")
     ax.set_xlabel("Year")
@@ -334,7 +351,7 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     # 3) Distribuzione empirica discreta (top 30 frequenze per mantenere la leggibilità).
     discrete = x.value_counts(normalize=True).sort_values(ascending=False).head(30)
     fig, ax = plt.subplots(figsize=(12, 5))
-    ax.bar(discrete.index.astype(str), discrete.values, color="tab:purple", alpha=0.8)
+    ax.bar(discrete.index.astype(str), discrete.to_numpy(dtype=float), color="tab:purple", alpha=0.8)
     ax.set_title("Empirical Discrete Distribution (Top 30 values)")
     ax.set_xlabel("Value")
     ax.set_ylabel("Relative frequency")
@@ -368,11 +385,13 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     # 5) Grafico di validazione del trend con linea di regressione lineare sovrapposta alla serie temporale, per valutare visivamente la presenza di un trend significativo e confrontarlo con i risultati della regressione lineare calcolata nella funzione _trend_validation.
     years = x.index.to_numpy(dtype=float)
     values = x.to_numpy(dtype=float)
-    slope, intercept, _, _, _ = stats.linregress(years, values)
+    linreg_res = stats.linregress(years, values)
+    slope = _to_float_scalar(linreg_res[0])
+    intercept = _to_float_scalar(linreg_res[1])
     trend_line = intercept + slope * years
 
     fig, ax = plt.subplots(figsize=(12, 5))
-    ax.plot(x.index, x.values, color="tab:blue", linewidth=2, label="Observed")
+    ax.plot(x.index, x.to_numpy(dtype=float), color="tab:blue", linewidth=2, label="Observed")
     ax.plot(x.index, trend_line, color="tab:orange", linestyle="--", linewidth=2, label="Linear trend")
     ax.set_title("Trend Validation: Observed vs Linear Trend")
     ax.set_xlabel("Year")
@@ -396,10 +415,10 @@ def _save_distribution_plots(series: pd.Series, freq_df: pd.DataFrame, out_dir: 
     local_outlier_mask = local_score.abs() > 3.5
 
     fig, ax = plt.subplots(figsize=(12, 5))
-    ax.plot(yoy.index, yoy.values, color="tab:blue", linewidth=1.8, label="YoY change")
+    ax.plot(yoy.index, yoy.to_numpy(dtype=float), color="tab:blue", linewidth=1.8, label="YoY change")
     ax.plot(
         rolling_median.index,
-        rolling_median.values,
+        rolling_median.to_numpy(dtype=float),
         color="tab:green",
         linestyle="--",
         linewidth=1.8,

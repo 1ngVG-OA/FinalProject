@@ -223,7 +223,9 @@ class NeuralModelRunner:
     ) -> pd.Series:
         """Forecast ricorsivo multi-step usando il modello come one-step predictor."""
 
-        history = list(pd.to_numeric(seed_series, errors="coerce").dropna().astype(float).to_numpy())
+        history: list[float] = [
+            float(v) for v in pd.to_numeric(seed_series, errors="coerce").dropna().astype(float).to_numpy()
+        ]
         preds: list[float] = []
 
         model.eval()

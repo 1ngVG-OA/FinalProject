@@ -77,18 +77,19 @@ def save_ml_plots(output: dict[str, Any], out_dir: Path, suffix: str | None = No
         and diff_order in (0, 1, 2)
     ):
         raw = pd.to_numeric(original_series, errors="coerce").dropna().astype(float)
-        x_log = np.log1p(raw)
+        x_log = pd.Series(np.log1p(raw.to_numpy(dtype=float)), index=raw.index, name="log1p")
 
         val_start = int(val_actual.index.min())
         test_start = int(test_actual.index.min())
 
         def invert_segment(pred: pd.Series, segment: str) -> pd.Series:
             if diff_order == 0:
-                return np.expm1(pred)
+                return pd.Series(np.expm1(pred.to_numpy(dtype=float)), index=pred.index, name="pred_orig")
             if diff_order == 1:
                 start = val_start if segment == "val" else test_start
                 seed_log = float(x_log[x_log.index < start].iloc[-1])
-                return np.expm1(seed_log + pred.cumsum())
+                pred_log = seed_log + pred.cumsum()
+                return pd.Series(np.expm1(pred_log.to_numpy(dtype=float)), index=pred.index, name="pred_orig")
 
             x_d1 = x_log.diff().dropna()
             start = val_start if segment == "val" else test_start
@@ -97,7 +98,7 @@ def save_ml_plots(output: dict[str, Any], out_dir: Path, suffix: str | None = No
             return invert_diff2_log1p(pred, seed_d1, seed_log)
 
         fig, ax = plt.subplots(figsize=(14, 5))
-        ax.plot(raw.index, raw.values, color="black", linewidth=2.2, label="serie_originale", zorder=5)
+        ax.plot(raw.index, raw.to_numpy(dtype=float), color="black", linewidth=2.2, label="serie_originale", zorder=5)
         ax.axvspan(int(val_actual.index.min()), int(val_actual.index.max()) + 1, alpha=0.07, color="tab:blue", label="_nolegend_")
         ax.axvspan(int(test_actual.index.min()), int(test_actual.index.max()) + 1, alpha=0.09, color="tab:orange", label="_nolegend_")
 
@@ -110,8 +111,8 @@ def save_ml_plots(output: dict[str, Any], out_dir: Path, suffix: str | None = No
 
             val_orig = invert_segment(val_pred, "val")
             test_orig = invert_segment(test_pred, "test")
-            ax.plot(val_orig.index, val_orig.values, color=color, linestyle="--", linewidth=1.6, label=f"{model_name}_val_orig")
-            ax.plot(test_orig.index, test_orig.values, color=color, linewidth=2.0, label=f"{model_name}_test_orig")
+            ax.plot(val_orig.index, val_orig.to_numpy(dtype=float), color=color, linestyle="--", linewidth=1.6, label=f"{model_name}_val_orig")
+            ax.plot(test_orig.index, test_orig.to_numpy(dtype=float), color=color, linewidth=2.0, label=f"{model_name}_test_orig")
 
         ax.set_title("Step 4 - Non-Neural ML Forecasts on Original Scale")
         ax.set_xlabel("Time")

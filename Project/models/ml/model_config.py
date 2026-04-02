@@ -61,7 +61,7 @@ def invert_diff2_log1p(pred_d2: pd.Series, seed_d1: float, seed_log: float) -> p
     """Inverte previsioni da diff2(log1p(y)) alla scala originale."""
     d1_pred = seed_d1 + pred_d2.cumsum()
     log_pred = seed_log + d1_pred.cumsum()
-    return np.expm1(log_pred)
+    return pd.Series(np.expm1(log_pred.to_numpy(dtype=float)), index=pred_d2.index, name="pred_orig")
 
 
 def original_scale_metrics_for_segment(
@@ -84,9 +84,13 @@ def original_scale_metrics_for_segment(
 
     if diff_order == 0:
         # Only log1p applied — direct inversion
-        pred_orig = np.expm1(pred_segment)
+        pred_orig = pd.Series(
+            np.expm1(pred_segment.to_numpy(dtype=float)),
+            index=pred_segment.index,
+            name="pred_orig",
+        )
     else:
-        x_log = np.log1p(raw)
+        x_log = pd.Series(np.log1p(raw.to_numpy(dtype=float)), index=raw.index, name="log1p")
         seg_start = pred_segment.index.min()
 
         if diff_order == 1:
@@ -94,7 +98,12 @@ def original_scale_metrics_for_segment(
                 seed_log = float(x_log[x_log.index < seg_start].iloc[-1])
             except Exception:
                 return None
-            pred_orig = np.expm1(seed_log + pred_segment.cumsum())
+            pred_log = seed_log + pred_segment.cumsum()
+            pred_orig = pd.Series(
+                np.expm1(pred_log.to_numpy(dtype=float)),
+                index=pred_segment.index,
+                name="pred_orig",
+            )
         else:
             x_d1 = x_log.diff().dropna()
             try:

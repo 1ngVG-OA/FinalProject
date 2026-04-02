@@ -129,7 +129,7 @@ def invert_diff2_log1p(pred_d2: pd.Series, seed_d1: float, seed_log: float) -> p
     """Inverte previsioni in doppia differenza log1p riportandole in scala originale."""
     d1_pred = seed_d1 + pred_d2.cumsum()
     log_pred = seed_log + d1_pred.cumsum()
-    return np.expm1(log_pred)
+    return pd.Series(np.expm1(log_pred.to_numpy(dtype=float)), index=pred_d2.index, name="pred_orig")
 
 
 def build_original_scale_context(
@@ -150,7 +150,7 @@ def build_original_scale_context(
     if raw.empty:
         return None
 
-    x_log = np.log1p(raw)
+    x_log = pd.Series(np.log1p(raw.to_numpy(dtype=float)), index=raw.index, name="log1p")
 
     if diff_order == 1:
         try:
@@ -180,7 +180,7 @@ def validation_original_metrics(
 
     if diff_order == 1:
         log_pred = orig_context["seed_log_val"] + pred_val.cumsum()
-        pred_orig = np.expm1(log_pred)
+        pred_orig = pd.Series(np.expm1(log_pred.to_numpy(dtype=float)), index=pred_val.index, name="pred_orig")
     elif diff_order == 2:
         pred_orig = invert_diff2_log1p(
             pred_val,
