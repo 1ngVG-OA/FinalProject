@@ -5,6 +5,8 @@
   ],
   "feature_selection":"importance",
   "selected_feature_count":6,
+  "cv_folds":null,
+  "overfitting_lambda":0.0,
   "random_state":42,
   "use_xgboost":false,
   "dt_max_depth":[

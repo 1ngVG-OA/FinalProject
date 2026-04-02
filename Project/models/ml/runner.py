@@ -181,6 +181,8 @@ class MLModelRunner:
 
     @staticmethod
     def _build_supervised_segment(series: pd.Series, lookback: int) -> tuple[pd.DataFrame, pd.Series]:
+        # Utility usata anche nella walk-forward CV: ricostruisce un problema supervisionato
+        # direttamente da un segmento temporale, utile quando la serie e troppo corta per affidarsi a un solo split fisso.
         x = pd.to_numeric(series, errors="coerce").dropna().astype(float)
         if len(x) <= lookback:
             raise ValueError("Segment is too short for the requested lookback")
@@ -203,6 +205,8 @@ class MLModelRunner:
         selected_features: list[str],
         n_folds: int,
     ) -> float:
+        # La walk-forward CV e pensata soprattutto per serie corte come consumption:
+        # riduce la dipendenza da una singola validation finale e produce un criterio di ranking piu stabile.
         train_series = pd.to_numeric(self.train, errors="coerce").dropna().astype(float)
         min_train_size = lookback + 3
         if len(train_series) <= min_train_size:
@@ -295,6 +299,8 @@ class MLModelRunner:
                 use_log1p=self.use_log1p,
                 diff_order=self.diff_order,
             )
+            # In production il ranking puo continuare a usare la validation classica.
+            # Se cv_folds e valorizzato, come nel flusso consumption, il ranking passa invece alla media walk-forward sul train.
             rank_rmse_single = val_orig_metrics["rmse"] if val_orig_metrics is not None else val_metrics["rmse"]
             cv_rmse_train = np.nan
             rank_rmse = rank_rmse_single
@@ -455,6 +461,8 @@ class MLModelRunner:
         summary_df = summary_df.assign(rank_abs_mbe_val=summary_df["abs_mbe_val_orig"].fillna(summary_df["abs_mbe_val"]))
         summary_df = summary_df.assign(rank_rmse_test=summary_df["rmse_test_orig"].fillna(summary_df["rmse_test"]))
         summary_df = summary_df.assign(rank_abs_mbe_test=summary_df["abs_mbe_test_orig"].fillna(summary_df["abs_mbe_test"]))
+        # La penalizzazione dell'overfitting viene usata per dare maggiore robustezza alle serie corte:
+        # se un modello ha validation molto bassa ma degrada fortemente sul test, il gap aumenta il suo punteggio composito.
         summary_df = summary_df.assign(
             overfitting_gap=np.maximum(0.0, summary_df["rank_rmse_test"] - summary_df["rank_rmse_val"])
         )
@@ -462,6 +470,8 @@ class MLModelRunner:
             composite_score=summary_df["rank_rmse_val"]
             + float(self.config.overfitting_lambda) * summary_df["overfitting_gap"]
         )
+        # Il comportamento resta backward-compatible: production continua a ordinare per validation pura,
+        # mentre consumption puo attivare il composite_score impostando overfitting_lambda > 0.
         if float(self.config.overfitting_lambda) > 0.0:
             sort_cols = ["composite_score", "rank_abs_mbe_val", "rank_rmse_val"]
         else:

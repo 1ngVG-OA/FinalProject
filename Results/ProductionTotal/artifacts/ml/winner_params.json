@@ -28,5 +28,7 @@
   "rank_rmse_val":6579.0139334092,
   "rank_abs_mbe_val":4861.0894391318,
   "rank_rmse_test":25658.1494741104,
-  "rank_abs_mbe_test":15827.1381752529
+  "rank_abs_mbe_test":15827.1381752529,
+  "overfitting_gap":19079.1355407012,
+  "composite_score":6579.0139334092
 }

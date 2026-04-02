@@ -115,6 +115,8 @@ class MLStepConfig:
     lookback_values: tuple[int, ...] = (6, 8, 12)
     feature_selection: str = "importance"  # one of: none, rfe, importance
     selected_feature_count: int = 6
+    # Parametri opzionali introdotti per serie corte come consumption.
+    # Di default restano inattivi, cosi la pipeline production continua a usare il comportamento storico.
     cv_folds: int | None = None
     overfitting_lambda: float = 0.0
     random_state: int = 42
@@ -139,6 +141,8 @@ class MLStepConfig:
     xgb_colsample_bytree: tuple[float, ...] = (0.8, 1.0)
 
     def __post_init__(self) -> None:
+        # Le validazioni proteggono le configurazioni piu conservative usate per consumption,
+        # senza imporle alla pipeline production quando i nuovi parametri non vengono valorizzati.
         if self.cv_folds is not None and int(self.cv_folds) < 2:
             raise ValueError("cv_folds must be None or >= 2")
         if float(self.overfitting_lambda) < 0.0:
