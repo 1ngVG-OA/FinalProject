@@ -1,28 +1,28 @@
-# Descriptive
+# Analisi descrittiva
 
 1. Carico la serie temporale adeguandola allo standard utilizzato da pandas. Tolgo il separatore delle migliaia e uso il punto come separatore decimale.
 
-2. Dopo aver ottenuto la Serie temporale univariata in formato Pandas, passo al core di questa analisi:
-- Freq Distribution: crea range numerici di valori sui quali basare il calcolo della distribuzione.
+2. Dopo aver ottenuto la serie temporale univariata in formato Pandas, passo al nucleo di questa analisi:
+- Distribuzione di frequenza: crea intervalli numerici di valori sui quali basare il calcolo della distribuzione.
 - Media, Moda e Mediana
 - Misure di dispersione: Range, varianza, deviazione standard, coefficiente di variazione e IQR (Range interquartile)
 - Outlier utilizzando il metodo di intervallo interquartile
-- Trend validation (da approfondire)
-- Local Outliers
-- Plot dei risultati
+- Validazione del trend (da approfondire)
+- Outlier locali
+- Grafici dei risultati
 
 3. Funzione che esegue tutto quello elencato sopra.
 
-# Preprocessing
+# Pre-elaborazione
 
-Qui per eseguire il preprocessing sono state create 2 classi, con l'obiettivo di...
+Qui, per eseguire la pre-elaborazione, sono state create 2 classi, con l'obiettivo di...
 
 ## auto_config
-Serve a confrontare i risultati del preprocessing e selezionare automaticamente la trasformazione più adeguata.
+Serve a confrontare i risultati della pre-elaborazione e selezionare automaticamente la trasformazione più adeguata.
 
 1. Definiamo varie trasformazioni (l'idea è che ogni tipologia di analisi possa avere la trasformazione più adeguata, questo implica che saranno diverse tra modello statistico, ML e Reti neurali).
 
-2. Backtest (profilo statistical): per ogni trasformazione candidata viene eseguito un mini backtest SARIMA su train/validation. Le previsioni vengono riportate anche in scala originale per misurare RMSE e bias (MBE), così da penalizzare configurazioni che introducono drift dopo l'inversione delle trasformazioni.
+2. Backtest (profilo `statistical`): per ogni trasformazione candidata viene eseguito un mini backtest SARIMA su train/validation. Le previsioni vengono riportate anche in scala originale per misurare RMSE e bias (MBE), così da penalizzare configurazioni che introducono drift dopo l'inversione delle trasformazioni.
 
 3. Recupera i candidati in base al profilo (`statistical`, `ml`, `neural`) e li valuta con `TimeSeriesPreprocessor.evaluate_candidates`.
 
@@ -36,11 +36,11 @@ Serve a confrontare i risultati del preprocessing e selezionare automaticamente 
 - `ml`: priorità a stazionarietà, bassa differenziazione e uso sensato dello scaling
 - `neural`: priorità a scaling + stazionarietà, mantenendo trasformazioni non eccessive.
 
-6. Seleziona la trasformazione vincente, costruisce la `PreprocessingConfig` finale, esegue `preprocess()` e salva la configurazione scelta per garantire riproducibilità del run.
+6. Seleziona la trasformazione vincente, costruisce la `PreprocessingConfig` finale, esegue `preprocess()` e salva la configurazione scelta per garantire la riproducibilità dell'esecuzione.
 
 ## Time_series_preprocessor
 
-Questa classe esegue il preprocessing vero e proprio sulla serie temporale, in modo configurabile e leakage-safe.
+Questa classe esegue la pre-elaborazione vera e propria sulla serie temporale, in modo configurabile e senza leakage.
 
 1. Valida la serie in input: converte in numerico, rimuove valori non validi, ordina temporalmente e garantisce una base pulita per le trasformazioni.
 
@@ -49,9 +49,9 @@ Questa classe esegue il preprocessing vero e proprio sulla serie temporale, in m
 - trasformazione di potenza con segno (se configurata)
 - differenziazione (`diff_order`) per rendere la serie più stazionaria.
 
-3. Esegue lo split in `train/val/test` secondo le proporzioni configurate (`SplitConfig`).
+3. Esegue la suddivisione in `train/val/test` secondo le proporzioni configurate (`SplitConfig`).
 
-4. Fitta lo scaler solo sul train (`none`, `standard`, `minmax`) e applica la stessa trasformazione a validation e test, evitando data leakage.
+4. Fitta lo scaler solo sul train (`none`, `standard`, `minmax`) e applica la stessa trasformazione a validation e test, evitando leakage informativo.
 
 5. Esegue i test di stazionarietà su ogni split (se sufficientemente lungo):
 - ADF (stazionaria se `p < 0.05`)
@@ -68,17 +68,17 @@ Questa classe esegue il preprocessing vero e proprio sulla serie temporale, in m
 - risultati dei test
 - tabella outlier locali.
 
-8. Genera anche i plot di preprocessing per analisi e reportistica:
-- raw vs transformed
+8. Genera anche i grafici di pre-elaborazione per analisi e reportistica:
+- serie grezza vs serie trasformata
 - vista train/val/test
 - ACF/PACF sul train
 - outlier locali YoY.
 
-# Statistical
+# Modelli statistici
 
 ## SARIMA
 
-Questa parte implementa la ricerca del miglior modello SARIMA su split fissi train/validation/test.
+Questa parte implementa la ricerca del miglior modello SARIMA su suddivisioni fisse train/validation/test.
 
 1. Costruisce i candidati combinando i parametri non stagionali (`p,d,q`) e, se presente stagionalità, anche quelli stagionali (`P,D,Q,s`).
 
@@ -95,7 +95,7 @@ Questa parte implementa la ricerca del miglior modello SARIMA su split fissi tra
 
 4. Seleziona il best candidate e poi esegue il refit su `train + validation` per ottenere il modello finale usato nella previsione test.
 
-## Model_config
+## Configurazione modello
 
 Questo modulo centralizza configurazioni e utility comuni dello step statistico.
 
@@ -116,7 +116,7 @@ Questo modulo centralizza configurazioni e utility comuni dello step statistico.
 
 5. Include helper per inferire il periodo stagionale dall'indice temporale (`infer_seasonal_period_from_index`).
 
-## statistical_runner
+## Runner statistico
 
 Questa classe orchestra l'intero step statistico e restituisce un output unico pronto per salvataggio e confronto.
 
@@ -130,14 +130,14 @@ Questa classe orchestra l'intero step statistico e restituisce un output unico p
 - forecast test dal modello rifittato.
 
 4. Costruisce le tabelle finali:
-- summary metriche
+- riepilogo metriche
 - winner e parametri del winner
 - diagnostica residui
-- forecast table completa (validation + test).
+- tabella forecast completa (validation + test).
 
 5. Espone anche `save_plots(...)` per delegare la produzione dei grafici statistici.
 
-## evaluation
+## Valutazione
 
 Qui sono definite le funzioni di valutazione e selezione finale del modello.
 
@@ -149,11 +149,11 @@ Qui sono definite le funzioni di valutazione e selezione finale del modello.
 
 4. `select_winner(...)` seleziona il vincitore usando prima metriche validation in scala originale (se disponibili), altrimenti fallback su scala trasformata.
 
-## plotting
+## Grafici
 
 Il modulo plotting salva i grafici principali dello step statistico.
 
-1. Forecast comparison su serie trasformata:
+1. Confronto forecast su serie trasformata:
 - actual validation/test
 - previsione SARIMA su validation e test.
 
@@ -165,9 +165,9 @@ Il modulo plotting salva i grafici principali dello step statistico.
 - ricostruzione con log1p/differencing
 - confronto visivo con serie originale.
 
-4. Tutti i plot vengono salvati con naming consistente e suffisso opzionale (es. baseline).
+4. Tutti i grafici vengono salvati con naming consistente e suffisso opzionale (es. baseline).
 
-## run_baseline
+## Esecuzione baseline
 
 Script operativo per eseguire end-to-end la baseline statistica.
 
@@ -184,13 +184,13 @@ Script operativo per eseguire end-to-end la baseline statistica.
 - winner params
 - plot finali.
 
-5. Stampa a terminale il completamento run e i path degli artifact generati.
+5. Stampa a terminale il completamento dell'esecuzione e i path degli artifact generati.
 
 # ML
 
-## model_config
+## Configurazione modello
 
-Questo modulo centralizza configurazione e metriche comuni per lo Step 4 (ML non neurale).
+Questo modulo centralizza configurazione e metriche comuni per la Fase 4 (ML non neurale).
 
 1. Definisce `MLStepConfig`, con:
 - griglie dei modelli (`DecisionTree`, `RandomForest`, `GradientBoosting`, `XGBoost` opzionale)
@@ -208,31 +208,31 @@ Questo modulo centralizza configurazione e metriche comuni per lo Step 4 (ML non
 
 4. Fornisce utility di validazione input:
 - split train/validation/test numerici e ordinati temporalmente
-- serie originale opzionale per confronto transformed vs original scale.
+- serie originale opzionale per confronto tra scala trasformata e scala originale.
 
 ## features
 
-Qui viene costruito il dataset supervisionato lag-based e viene fatta la selezione delle feature.
+Qui viene costruito il dataset supervisionato basato sui lag e viene fatta la selezione delle feature.
 
 1. `build_lagged_dataset(...)` crea matrici `X/y` per train, validation e test usando una finestra `lookback`:
-- `lag_1` e il valore piu recente
-- validation/test possono usare la storia precedente (setup realistico per forecasting).
+- `lag_1` è il valore più recente
+- validation/test possono usare la storia precedente (impostazione realistica per il forecasting).
 
 2. `select_features(...)` supporta tre strategie:
 - `none`: usa tutti i lag
 - `rfe`: Recursive Feature Elimination con albero decisionale
 - `importance`: ranking da feature importance con RandomForest.
 
-3. `build_model_feature_matrix(...)` proietta i tre split solo sulle feature selezionate, mantenendo consistenza tra train e inferenza.
+3. `build_model_feature_matrix(...)` proietta i tre split solo sulle feature selezionate, mantenendo coerenza tra train e inferenza.
 
 4. `last_window_from_series(...)` estrae l'ultima finestra laggata pronta per forecast ricorsivo.
 
-## plotting
+## Grafici
 
-Questo modulo salva i plot finali dello Step 4.
+Questo modulo salva i grafici finali della Fase 4.
 
 1. Grafico in scala trasformata:
-- actual su validation e test
+- valori osservati su validation e test
 - forecast di tutti i modelli selezionati
 - separazione visiva validation/test.
 
@@ -242,7 +242,7 @@ Questo modulo salva i plot finali dello Step 4.
 
 3. Salva i file in `Results/<Serie>/plots/ml/` con naming consistente e suffisso opzionale (es. `baseline`).
 
-## runner
+## Runner
 
 `MLModelRunner` e l'orchestratore centrale dello step ML.
 
@@ -257,7 +257,7 @@ Questo modulo salva i plot finali dello Step 4.
 - feature selection
 - matrici ridotte sulle feature selezionate.
 
-3. Esegue fit del candidato su train e forecast ricorsivo su validation.
+3. Esegue il fit del candidato su train e forecast ricorsivo su validation.
 
 4. Calcola metriche validation in scala trasformata e, se possibile, anche in scala originale.
 
@@ -275,30 +275,30 @@ Questo modulo salva i plot finali dello Step 4.
 - `feature_selection_report`
 - `winner` e `winner_params`.
 
-8. Se `overfitting_lambda > 0`, applica una penalizzazione al gap validation-test nel `composite_score`, rendendo la scelta finale piu robusta.
+8. Se `overfitting_lambda > 0`, applica una penalizzazione al gap validation-test nel `composite_score`, rendendo la scelta finale più robusta.
 
-## run_baseline
+## Esecuzione baseline
 
 Script operativo end-to-end per la baseline ML non neurale.
 
 1. Carica la serie target da `config.py`.
 
-2. Esegue preprocessing automatico con profilo `ml`.
+2. Esegue la pre-elaborazione automatica con profilo `ml`.
 
 3. Costruisce una `MLStepConfig` baseline (griglia controllata) e lancia `MLModelRunner`.
 
-4. Salva output principali in `Results/<Serie>/...`:
+4. Salva gli output principali in `Results/<Serie>/...`:
 - metriche preprocessing e ML (`grid`, `summary`, `forecasts`, `feature_selection`)
 - artifact (`winner_params`, `config`, preprocessing config selezionata)
-- split preprocessati per tracciabilita.
+- split preprocessati per tracciabilità.
 
 5. Salva i grafici ML tramite `save_ml_plots(...)` e stampa a terminale winner e path degli artifact prodotti.
 
-# Neural
+# Modelli neurali
 
-## model_config
+## Configurazione modello
 
-Questo modulo centralizza configurazione, metriche e inversione delle trasformazioni per lo Step 5 neurale.
+Questo modulo centralizza configurazione, metriche e inversione delle trasformazioni per la Fase 5 neurale.
 
 1. Definisce `NeuralStepConfig`, con:
 - modelli candidati (`mlp`, `lstm`)
@@ -307,7 +307,7 @@ Questo modulo centralizza configurazione, metriche e inversione delle trasformaz
 - parametri specifici di architettura (MLP: hidden/activation/dropout, LSTM: hidden/layers/dropout)
 - controlli training (`max_epochs`, `patience`, `seed`, `device`).
 
-2. Fornisce utility di riproducibilita e device management:
+2. Fornisce utility di riproducibilità e gestione del device:
 - `seed_everything(...)` per Python/NumPy/Torch
 - `resolve_torch_device(...)` con fallback esplicito a CPU.
 
@@ -316,16 +316,16 @@ Questo modulo centralizza configurazione, metriche e inversione delle trasformaz
 - `MBE` e `ABS_MBE`
 - versioni allineate su indice e filtraggio NaN.
 
-4. Gestisce inversione del preprocessing per metriche in scala originale:
+4. Gestisce l'inversione della pre-elaborazione per metriche in scala originale:
 - inversione eventuale scaling (`none`, `standard`, `minmax`) rifittando lo scaler solo sul train
 - inversione `log1p` e differenziazione (`diff_order` 0/1/2)
-- calcolo metriche original-scale quando il contesto e disponibile.
+- calcolo metriche in scala originale quando il contesto è disponibile.
 
 5. Espone configurazioni pronte all'uso:
 - `build_compact_neural_config()` per baseline
-- `build_extended_neural_config()` per ricerca piu ampia.
+- `build_extended_neural_config()` per ricerca più ampia.
 
-## features
+## Feature
 
 Qui viene creato il dataset supervisionato a finestre mobili per il training neurale.
 
@@ -339,7 +339,7 @@ Qui viene creato il dataset supervisionato a finestre mobili per il training neu
 - `X_test`, `y_test`
 - seed ricorsivi (`train_seed`, `train_val_seed`) usati nella previsione multi-step.
 
-## models
+## Modelli
 
 Questo modulo definisce le architetture torch utilizzate nello step neurale.
 
@@ -350,16 +350,16 @@ Questo modulo definisce le architetture torch utilizzate nello step neurale.
 
 2. `LSTMForecaster`:
 - LSTM many-to-one su sequenza temporale
-- supporto a piu layer
+- supporto a più layer
 - dropout effettivo solo quando `num_layers > 1`
 - testa lineare finale sullo stato nascosto ultimo timestep.
 
-## plotting
+## Grafici
 
 Il modulo plotting salva i grafici finali del confronto neurale.
 
 1. Grafico in scala preprocessata:
-- actual su validation e test
+- valori osservati su validation e test
 - previsioni val/test per ogni modello neurale
 - separatore visivo tra blocchi temporali.
 
@@ -369,9 +369,9 @@ Il modulo plotting salva i grafici finali del confronto neurale.
 
 3. Salva i file in `Results/<Serie>/plots/neural/` con naming consistente e suffisso opzionale (es. `baseline`).
 
-## runner
+## Runner
 
-`NeuralModelRunner` e l'orchestratore dello Step 5.
+`NeuralModelRunner` è l'orchestratore della Fase 5.
 
 1. Valida split e serie originale, risolve device torch e prepara il blocco `train + validation`.
 
@@ -403,26 +403,26 @@ Il modulo plotting salva i grafici finali del confronto neurale.
 - `winner` e `winner_params`
 - serie predette per validation/test per ogni modello.
 
-## run_baseline
+## Esecuzione baseline
 
 Script operativo end-to-end per la baseline neurale.
 
 1. Carica la serie target da `config.py`.
 
-2. Esegue preprocessing automatico con profilo `neural`.
+2. Esegue la pre-elaborazione automatica con profilo `neural`.
 
 3. Costruisce configurazione compatta (`build_compact_neural_config`) e lancia `NeuralModelRunner`.
 
 4. Salva output in `Results/<Serie>/...`:
 - metriche preprocessing e neural (`grid`, `summary`, `forecasts`)
 - artifact (`winner_params`, `config`, selected preprocessing config)
-- split preprocessati per tracciabilita.
+- split preprocessati per tracciabilità.
 
 5. Salva i plot neurali con `save_neural_plots(...)` e stampa winner e path artifact a terminale.
 
-# Evaluation
+# Valutazione finale
 
-## comparison
+## Confronto
 
 Questo modulo confronta in modo unificato i risultati delle tre famiglie (statistical, ml, neural).
 
@@ -430,15 +430,15 @@ Questo modulo confronta in modo unificato i risultati delle tre famiglie (statis
 
 2. Costruisce una tabella `family_winners` contenente il miglior modello per ciascuna famiglia.
 
-3. Esegue il ranking globale con priorita:
+3. Esegue il ranking globale con priorità:
 - `rank_rmse_val_global` (usa metriche in scala originale quando disponibili)
 - `rank_abs_mbe_val_global` come tie-break.
 
 4. Ricostruisce una tabella `winner_forecasts` in scala originale con:
-- actual
-- predizione statistical winner
-- predizione ml winner
-- predizione neural winner
+- valori reali
+- predizione del vincitore statistical
+- predizione del vincitore ml
+- predizione del vincitore neural
 - errori per famiglia.
 
 5. Espone il `global_winner` finale (famiglia, modello e rank).
@@ -447,7 +447,7 @@ Risultati correnti salvati:
 - ConsumptionTotal: global winner = neural::mlp
 - ProductionTotal: global winner = statistical::sarima.
 
-## inferential
+## Analisi inferenziale
 
 La valutazione inferenziale usa il test Diebold-Mariano pairwise sui family winners.
 
@@ -456,7 +456,7 @@ La valutazione inferenziale usa il test Diebold-Mariano pairwise sui family winn
 - statistical vs neural
 - ml vs neural.
 
-2. Loss function usata: errore quadratico (`power=2`), orizzonte `h=1`.
+2. Funzione di perdita usata: errore quadratico (`power=2`), orizzonte `h=1`.
 
 3. Applica correzione Harvey-Leybourne-Newbold alla statistica DM e restituisce:
 - `dm_stat`
@@ -468,9 +468,9 @@ Esito sintetico corrente:
 - ConsumptionTotal: ML e Neural migliori di Statistical; ML vs Neural non significativo.
 - ProductionTotal: differenza significativa a favore ML su Statistical; gli altri confronti non significativi.
 
-## prescriptive
+## Analisi prescrittiva
 
-Questo modulo trasforma le forecast del global winner in indicazioni operative scenario-based.
+Questo modulo trasforma le forecast del global winner in indicazioni operative basate su scenari.
 
 1. Lavora sul solo split test.
 
@@ -479,7 +479,7 @@ Questo modulo trasforma le forecast del global winner in indicazioni operative s
 - osservazione precedente
 - variazione attesa assoluta e percentuale
 - margine di incertezza (da RMSE validation del winner)
-- banda scenario (`scenario_low`, `scenario_high`)
+- banda di scenario (`scenario_low`, `scenario_high`)
 - `uncertainty_ratio`.
 
 3. Genera una raccomandazione combinando variazione e incertezza:
@@ -490,9 +490,9 @@ Esito sintetico corrente:
 - ConsumptionTotal: prevalenza segnali `low_uncertainty_increase` sul finale dell'orizzonte test.
 - ProductionTotal: prevalenza segnali `low_uncertainty_decrease` nella parte centrale del test.
 
-## pipeline_orchestration
+## Orchestrazione pipeline
 
-L'orchestrazione end-to-end e gestita da due entrypoint.
+L'orchestrazione end-to-end è gestita da due entrypoint.
 
 1. `main.py`:
 - pipeline completa sulla serie di default
@@ -501,5 +501,96 @@ L'orchestrazione end-to-end e gestita da due entrypoint.
 
 2. `main_consumption.py`:
 - pipeline dedicata a `consumption_total`
-- mantiene lo stesso formato output ma usa configurazioni piu conservative per serie corta (soprattutto in ML e Neural)
+- mantiene lo stesso formato output ma usa configurazioni più conservative per serie corta (soprattutto in ML e Neural)
 - include gli stessi step finali di confronto e valutazione.
+
+# Flusso di dati 
+
+L'analisi descrittiva viene eseguita in modo indipendente e non genera output necessari allo sviluppo dei modelli, ma serve per capire il comportamento della serie.
+
+## Analisi Statistica
+
+```mermaid
+flowchart TD
+	A[Dataset CSV grezzo] --> B[Caricamento serie target]
+	B --> C[Pulizia e casting numerico]
+	C --> D[Analisi descrittiva]
+	D --> E[Pre-elaborazione automatica - profilo statistical]
+
+	E --> E1[Generazione candidati trasformazione]
+	E1 --> E2[Valutazione candidati + ranking]
+	E2 --> E3[Selezione configurazione vincente]
+	E3 --> E4[Trasformazioni deterministiche: log1p/power/diff]
+	E4 --> E5[Split train/validation/test]
+	E5 --> E6[Fit scaler solo su train + applicazione su val/test]
+	E6 --> E7[Test statistici + outlier locali + plot]
+
+	E7 --> S0[Branch Statistical]
+	E7 --> M0[Branch ML]
+	C --> N0[Branch Neural: pre-elaborazione profilo neural]
+
+	S0 --> S1[Grid SARIMA su train]
+	S1 --> S2[Forecast validation]
+	S2 --> S3[Metriche val transformed + original]
+	S3 --> S4[Ranking candidati]
+	S4 --> S5[Refit su train + validation]
+	S5 --> S6[Forecast test]
+	S6 --> S7[Salvataggio: summary/forecasts/residuals/winner]
+
+	M0 --> M1[Costruzione dataset laggato]
+	M1 --> M2[Feature selection]
+	M2 --> M3[Grid ML: DT/RF/GBR/XGB opzionale]
+	M3 --> M4[Fit su train + forecast ricorsivo validation]
+	M4 --> M5[Metriche val transformed + original]
+	M5 --> M6[Ranking (RMSE + ABS_MBE, CV opzionale)]
+	M6 --> M7[Refit su train + validation]
+	M7 --> M8[Forecast test]
+	M8 --> M9[Salvataggio: grid/summary/forecasts/features/winner]
+
+	N0 --> N1[Pre-elaborazione profilo neural]
+	N1 --> N2[Costruzione finestre mobili]
+	N2 --> N3[Grid neurale: MLP/LSTM]
+	N3 --> N4[Training con early stopping]
+	N4 --> N5[Forecast ricorsivo validation]
+	N5 --> N6[Metriche val transformed + original]
+	N6 --> N7[Ranking candidati per famiglia]
+	N7 --> N8[Refit su train + validation]
+	N8 --> N9[Forecast test]
+	N9 --> N10[Salvataggio: grid/summary/forecasts/winner]
+
+	S7 --> C0[Confronto cross-family]
+	M9 --> C0
+	N10 --> C0
+
+	C0 --> C1[all_models]
+	C0 --> C2[family_winners]
+	C0 --> C3[winner_forecasts in scala originale]
+	C0 --> C4[global_winner]
+
+	C4 --> I0[Analisi inferenziale]
+	C3 --> I0
+	I0 --> I1[Test Diebold-Mariano pairwise]
+	I1 --> I2[diebold_mariano.csv]
+
+	C2 --> P0[Analisi prescrittiva]
+	C3 --> P0
+	P0 --> P1[Scenari sullo split test]
+	P1 --> P2[Segnali: increase/decrease/stable]
+	P2 --> P3[scenarios.csv]
+```
+
+## Sequenza operativa (in breve)
+
+1. I dati grezzi vengono caricati e convertiti in una serie temporale numerica ordinata.
+2. Si esegue analisi descrittiva per comprendere distribuzione, dispersione, outlier e trend.
+3. La serie passa nella pre-elaborazione: trasformazioni candidate, ranking automatico e selezione configurazione.
+4. Si applicano trasformazioni deterministiche, split train/validation/test, scaling leakage-safe, test statistici e diagnostica outlier.
+5. Dallo stesso input preprocessato partono i tre rami modellistici:
+- Statistical: grid SARIMA, ranking, refit, forecast test.
+- ML: lag features, feature selection, grid modelli, ranking, refit, forecast test.
+- Neural: finestre mobili, training MLP/LSTM con early stopping, ranking, refit, forecast test.
+6. I winner di famiglia vengono confrontati nel layer cross-family e si ottiene il global winner.
+7. Sui forecast dei winner vengono eseguite:
+- analisi inferenziale (Diebold-Mariano)
+- analisi prescrittiva (scenari e raccomandazioni operative).
+8. Tutti gli artifact finali vengono salvati in `Results/<Serie>/metrics|plots|artifacts/...`.
