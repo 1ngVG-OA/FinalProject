@@ -31,6 +31,42 @@ Serve a confrontare i risultati della pre-elaborazione e selezionare automaticam
 - `abs_mbe_zero_val_orig` (stessa logica ma in scala originale, quando applicabile)
 - per `statistical`, ranking da backtest e controllo `drift_guard` per escludere candidati troppo instabili.
 
+
+---
+
+**Problema che lo score vuole risolvere**
+
+Ogni candidato (es. log1p+diff1) trasforma la serie. Le previsioni vengono fatte nello spazio trasformato, poi **invertite** per tornare in scala originale (GWh). Il rischio è che la trasformazione intro duca **bias sistematico** durante l'inversione: la serie predetta si sposta stabilmente sopra o sotto quella reale.
+
+---
+
+**I due componenti**
+
+**RMSE_orig** (errore quadratico medio in scala originale) — misura l'accuratezza della previsione: penalizza tanto gli errori grandi. È la metrica principale di qualità.
+
+**|MBE_orig|** (valore assoluto del Mean Bias Error in scala originale) — misura il bias sistematico:
+$$\text{MBE} = \frac{1}{n}\sum_{t}(\hat{y}_t - y_t)$$
+Se è positivo, il modello sovrastima sempre. Se è negativo, sottostima sempre. Il valore assoluto cattura entrambi i casi.
+
+---
+
+**Score composito**
+
+$$\text{score} = \text{RMSE}_{\text{orig}} + 0.5 \times |\text{MBE}_{\text{orig}}|$$
+
+Il λ = 0.5 (da `BACKTEST_COMPOSITE_LAMBDA`) è un peso di penalizzazione: il bias vale metà rispetto all'errore puro. Nei tuoi dati:
+
+| Config | RMSE_orig | \|MBE_orig\| | Score |
+|---|---|---|---|
+| log1p + diff(1) | 39.699 | 32.813 | **56.105** ← vincitore |
+| log1p + diff(2) | 46.766 | 39.204 | 66.368 |
+
+---
+
+**Drift Guard** — il veto prima dello score
+
+Prima ancora di calcolare lo score, viene applicato un filtro duro: se `|MBE_orig| > 2000 GWh` la configurazione viene **esclusa direttamente**, indipendentemente dall'RMSE. Questo è il motivo per cui log1p+diff(2) — pur avendo entrambi i test di stazionarietà ✓ — viene scartato prima del ranking.
+---
 5. Esegue il ranking finale con regole diverse per profilo:
 - `statistical`: priorità a stabilità/backtest, stazionarietà e parsimonia della differenziazione
 - `ml`: priorità a stazionarietà, bassa differenziazione e uso sensato dello scaling
@@ -59,6 +95,8 @@ Questa classe esegue la pre-elaborazione vera e propria sulla serie temporale, i
 - opzionalmente Shapiro-Wilk per un controllo di normalità.
 
 6. Calcola gli outlier locali sulle variazioni YoY con approccio robusto (rolling median + MAD, con fallback su deviazione standard) e marca i punti anomali con una soglia configurabile.
+Importante: non vengono rimossi o corretti valori della serie. Sono usati per analisi/visualizzazione.
+In pratica servono a evidenziare shock locali (picchi/crolli) mantenendo intatti i dati per il training.
 
 7. Restituisce un output strutturato con:
 - configurazione usata
@@ -72,11 +110,100 @@ Questa classe esegue la pre-elaborazione vera e propria sulla serie temporale, i
 - serie grezza vs serie trasformata
 - vista train/val/test
 - ACF/PACF sul train
+
+---
+
+**ACF — Autocorrelation Function**
+
+Misura la correlazione tra un valore e i suoi lag passati, inclusi gli effetti indiretti. Nel tuo grafico:
+- Lag 0 = 1.0 sempre (una serie è perfettamente correlata con se stessa)
+- Lag 1 ≈ +0.30 significativo (ancora l'ombra del lag precedente)
+- Lag 2 ≈ −0.25 significativo
+- Dal lag 3 in poi: tutto dentro la banda di confidenza (zona azzurra) → rumore
+
+Banda azzurra = intervallo di confidenza al 95% (≈ ±2/√n). Se una barra esce dalla banda, la correlazione è statisticamente significativa.
+
+---
+
+**PACF — Partial Autocorrelation Function**
+
+Misura la correlazione "netta" tra il valore al tempo t e il lag k, **rimuovendo l'effetto di tutti i lag intermedi**. Nel tuo grafico ha lo stesso pattern: significativo a lag 1 e 2, poi nulla.
+
+---
+
+**Come si usano per scegliere p e q in ARIMA:**
+
+| Comportamento | Interpretazione |
+|---|---|
+| ACF scende lentamente (esponenziale o oscillante) | Serie non stazionaria — serve differenziare |
+| ACF taglia brusco dopo lag q | suggerisce MA(q) |
+| PACF taglia brusco dopo lag p | suggerisce AR(p) |
+| Entrambi decadono lentamente | suggerisce ARMA(p,q) |
+
+---
+
+**Nel tuo caso specifico:** dopo log1p + diff(1) l'ACF taglia dopo lag 2 e anche la PACF, con entrambi quasi identici → compatibile con un **MA(1) o AR(1) semplice**, che è esattamente quello che il backtest SARIMA ha selezionato come ordine migliore `(1,0,0)`.
 - outlier locali YoY.
 
 # Modelli statistici
 
 ## SARIMA
+
+**1) MAPE: cos'è**
+MAPE = Mean Absolute Percentage Error, cioè errore medio percentuale assoluto.
+
+Formula:
+$$
+\text{MAPE} = \frac{100}{n}\sum_{t=1}^{n}\left|\frac{y_t-\hat{y}_t}{y_t}\right|
+$$
+
+Interpretazione:
+- 5% significa: in media sbagli del 5% rispetto al valore reale.
+- Più è basso, meglio è.
+
+Limite importante:
+- Se alcuni $y_t$ sono molto piccoli (o vicini a 0), il MAPE può esplodere.
+- Per questo puoi vedere valori molto alti (come 921%) anche quando visivamente il fit non sembra “catastrofico” in tutti i punti.
+
+---
+
+**2) Tie-break: cosa intendo**
+Nel ranking dei modelli prima ordini per una metrica principale (es. RMSE).
+Se due modelli sono praticamente uguali su quella metrica, serve una regola secondaria per “rompere il pareggio”: questo è il tie-break.
+
+Nel tuo caso, semplificando:
+1. criterio principale: RMSE (o RMSE in scala originale)
+2. tie-break 1: $|MBE|$ (bias assoluto)
+3. tie-break 2: AICc (parsimony/qualità statistica)
+
+Quindi “tie-break” = criterio usato solo quando i modelli sono quasi pari sul criterio principale.
+
+---
+
+**3) Residual std: cos’è**
+Residual std = deviazione standard dei residui.
+
+Residuo:
+$$
+e_t = y_t - \hat{y}_t
+$$
+
+Residual std:
+$$
+\sigma_e = \text{std}(e_t)
+$$
+
+Interpretazione:
+- Misura quanto “si sparpagliano” gli errori attorno a 0.
+- Bassa residual std = errori più concentrati = modello più stabile.
+- Alta residual std = errori molto variabili.
+
+Differenza da residual mean:
+- residual mean ti dice se c’è bias medio (sovra/sotto stima sistematica).
+- residual std ti dice la variabilità degli errori.
+
+---
+
 
 Questa parte implementa la ricerca del miglior modello SARIMA su suddivisioni fisse train/validation/test.
 
