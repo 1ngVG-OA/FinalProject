@@ -595,6 +595,10 @@ Esito sintetico corrente:
 - ConsumptionTotal: ML e Neural migliori di Statistical; ML vs Neural non significativo.
 - ProductionTotal: differenza significativa a favore ML su Statistical; gli altri confronti non significativi.
 
+- meanLossDiff: è la differenza media tra le perdite (errori) dei due modelli confrontati. Un valore positivo indica che, in media, il primo modello ha errori maggiori rispetto al secondo; un valore negativo indica il contrario.
+- dm stat: è il valore della statistica del test Diebold-Mariano. Misura quanto la differenza tra gli errori dei due modelli sia significativa rispetto alla loro variabilità. Più è alto (in valore assoluto), più è probabile che la differenza sia reale e non dovuta al caso.
+- p value: è la probabilità di osservare una differenza almeno così grande tra i due modelli se in realtà non c’è una differenza significativa. Un p value basso (tipicamente < 0.05) indica che la differenza tra i modelli è statisticamente significativa.
+
 ## Analisi prescrittiva
 
 Questo modulo trasforma le forecast del global winner in indicazioni operative basate su scenari.
